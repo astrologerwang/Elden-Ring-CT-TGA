@@ -1,0 +1,1716 @@
+//Author: Dasaav
+{$lua}
+
+local function clean()
+    local header = memrec.Child[0]
+    for i = header.Count - 1, 0, -1 do
+        local child = header.Child[i]
+        child.OnGetDisplayValue = nil
+        child.OnValueChangedByUser = nil
+        createTimer(10, function() child.Delete() end)
+    end
+    if FlagManagerMemory ~= nil then
+        pcall(deAlloc, FlagManagerMemory)
+        FlagManagerMemory = nil
+    end
+end
+
+[ENABLE]
+local function ALWAYS_FALSE() return false end
+local function ALWAYS_TRUE() return true end
+
+local function IDENTITY(newValue) return newValue end
+local function INVERSE(newValue) return not newValue end
+
+local function FLAG(id, evaluate)
+    return {id = id, evaluate = evaluate or IDENTITY}
+end
+
+local stateGroups = {
+    {category = "Map", name = "Show underground | Unlocked", flags = {
+        FLAG(82001)
+    }},
+    {category = "Grace", name = "Table of Lost Grace | Unlocked", flags = {
+        FLAG(71190)
+    }},
+    {category = "Grace", name = "Ainsel River - Ainsel River Downstream | Unlocked", flags = {
+        FLAG(71213)
+    }},
+    --[[ BOSS FLAGS ]]
+    -- A note: ""Defeat the boss" (Resetting)" flags are possessed by every boss with a fog wall.
+    -- I don't even see them in the actual event scripts.
+    -- I don't know what they do, but they seem to serve the same function as "Defeat the Boss" flag, except cleared on NG+
+
+    --Additional note: It is HIGHLY RECOMMENDED if not REQUIRED to warp after respawning any boss. This is because the script does not revive their actual entity, just sets the flags.
+    --[[ Greater Limgrave ]]
+    -- Limgrave Main
+    {category = "Boss", subcategory = "Limgrave", name = "Beastman of Farum Azula | Defeated", flags = {
+        FLAG(31030800),             -- isDefeated
+        FLAG(9233),                 -- Defeat the boss m31_03 Cave 1-4 - ボス撃破 m31_03 洞窟１－４ (Loot, common funcs)
+        FLAG(520330),               -- Loot already given
+        FLAG(61233, ALWAYS_TRUE),   -- Defeat the boss m31_03 Cave 1-4 - ボス撃破 m31_03 洞窟１－４
+        FLAG(1233)                  -- "Defeat the boss" (Resetting)
+
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Bloodhound Knight Darriwil | Defeated", flags = {
+        FLAG(1044350800),           -- isDefeated, Loot
+        FLAG(530130)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Demi-Human Chiefs | Defeated", flags = {
+        FLAG(31150800),             -- isDefeated
+        FLAG(31150815),             -- isEncountered
+        FLAG(9234),                 -- Defeat the boss m31_15 Cave 1-5 - ボス撃破 m31_15 洞窟１－５ (Loot, common funcs)
+        --FLAG(520340),             -- Loot already given, Disabled: quest item
+        --FLAG(60140, ALWAYS_TRUE), -- Function lifted: Light armor replacement - 機能解禁：軽装防具交換 Disabled: game manages this better anyway
+        FLAG(61234, ALWAYS_TRUE),   -- Defeat the boss m31_15 Cave 1-5 - ボス撃破 m31_15 洞窟１－５
+        FLAG(1234)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Erdtree Burial Watchdog | Defeated", flags = {
+        FLAG(30020800),             -- isDefeated
+        FLAG(9202),                 -- Defeat the boss m30_02 Catacombs 1-3 - ボス撃破 m30_02 地下墓地１－３ (Loot, common funcs)
+        FLAG(520020),               -- Loot already given
+        FLAG(61202, ALWAYS_TRUE),   -- Defeat the boss m30_02 Catacombs 1-3 - ボス撃破 m30_02 地下墓地１－３
+        FLAG(1202)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Flying Dragon Agheel | Defeated", flags = {
+        FLAG(1043360800),           -- isDefeated, Loot, Cathedral of Dragon Communion
+        FLAG(1043360340),           -- isEncountered
+        FLAG(530110)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Grave Warden Duelist | Defeated", flags = {
+        FLAG(30040800),             -- isDefeated
+        FLAG(9204),                 -- Defeat the boss m30_04 Catacombs 1-5 - ボス撃破 m30_04 地下墓地１－５ (Loot, common funcs)
+        FLAG(520040),               -- Loot already given
+        FLAG(61204, ALWAYS_TRUE),   -- Defeat the boss m30_04 Catacombs 1-5 - ボス撃破 m30_04 地下墓地１－５
+        FLAG(1204)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Guardian Golem | Defeated", flags = {
+        FLAG(31170800),             -- isDefeated
+        FLAG(9235),                 -- Defeat the boss m31_17 Cave 1-6 - ボス撃破 m31_17 洞窟１－６ (Loot, common funcs)
+        FLAG(520350),               -- Loot already given
+        FLAG(61235, ALWAYS_TRUE),   -- Defeat the boss m31_17 Cave 1-6 - ボス撃破 m31_17 洞窟１－６
+        FLAG(1235)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Mad Pumpkin Head | Defeated", flags = {
+        FLAG(1044360800),           -- isDefeated, drops nothing anyway
+        FLAG(76120, ALWAYS_FALSE)   -- Waypoint Ruins Cellar grace menu icon. Hidden so you can't warp into a living boss' arena 
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1043370800),           -- isDefeated, Loot
+        FLAG(1043377400),           -- Loot already given
+        FLAG(65813, ALWAYS_TRUE)    -- Possession of magic stone: Multi-stage thrust - 魔石所持：多段突き
+    }},
+    -- missing: Patches. Out of scope - this script is not meant to manage entire NPC questlines
+    {category = "Boss", subcategory = "Limgrave", name = "Soldier of Godrick | Defeated", flags = {
+        FLAG(18000850)              -- isDefeated, drops nothing anyway
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Stonedigger Troll | Defeated", flags = {
+        FLAG(32010800),             -- isDefeated
+        FLAG(32010801),             -- isEncountered
+        FLAG(32018590),             -- Door opened
+        FLAG(9261),                 -- Defeat the boss m32_01 Mine 1-2 - ボス撃破 m32_01 坑道１－２ (Loot, common funcs)
+        FLAG(520610),               -- Loot already given
+        FLAG(61261, ALWAYS_TRUE),   -- Defeat the boss m32_01 Mine 1-2 - ボス撃破 m32_01 坑道１－２
+        FLAG(1261)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Tibia Mariner | Defeated", flags = {
+        FLAG(1045390800),           -- isDefeated
+        --FLAG(530170)              -- Loot already given, Disabled: Key item deduplication
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Tree Sentinel | Defeated", flags = {
+        FLAG(1042360800),           -- isDefeated, Loot
+        FLAG(530100)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Limgrave", name = "Ulcerated Tree Spirit | Defeated", flags = {
+        FLAG(18000800),             -- isDefeated
+        FLAG(9128),                 -- Boss Defeat Tutorial EX - ボス撃破 チュートリアルEX (Loot, common funcs)
+        FLAG(510280),               -- Loot already given
+        FLAG(61128, ALWAYS_TRUE),   -- Boss Defeat Tutorial EX - ボス撃破 チュートリアルEX
+        FLAG(1128)                  -- "Defeat the boss" (Resetting)
+    }},
+    -- Stormhill
+    {category = "Boss", subcategory = "Stormhill", name = "Bell Bearing Hunter | Defeated", flags = {
+        FLAG(1042380850),           -- isDefeated, Loot
+        --FLAG(1042387410)          -- Loot already given, Disabled: no point in dupes
+    }},
+    {category = "Boss", subcategory = "Stormhill", name = "Black Knife Assassin | Defeated", flags = {
+        FLAG(30110800),             -- isDefeated
+        FLAG(9203),                 -- Defeat the boss m30_03 Catacombs 1-4 - ボス撃破 m30_03 地下墓地１－４ (Loot, common funcs)
+        FLAG(520030),               -- Loot already given
+        FLAG(61203, ALWAYS_TRUE),   -- Defeat the boss m30_03 Catacombs 1-4 - ボス撃破 m30_03 地下墓地１－４
+        FLAG(1203)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Stormhill", name = "Crucible Knight | Defeated", flags = {
+        FLAG(1042370800),           -- isDefeated, Loot
+        FLAG(530120)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Stormhill", name = "Deathbird | Defeated", flags = {
+        FLAG(1042380800),           -- isDefeated, Loot
+        FLAG(1042387400)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Stormhill", name = "Margit, the Fell Omen | Defeated", flags = {
+        FLAG(10000850),             -- isDefeated
+        FLAG(10000851),             -- isEncountered
+        FLAG(9100),                 -- Defeat the boss Margit - ボス撃破 忌み鬼マルギット (Loot, common funcs)
+        FLAG(61100, ALWAYS_TRUE),   -- Defeat the boss Margit - ボス撃破 忌み鬼マルギット
+        --FLAG(60510),              -- Growth ban: Talisman equipment 1 - 成長解禁：タリスマン装備1, Disabled: no duplicate talisman pouches
+        FLAG(71001, ALWAYS_FALSE),  -- Margit, the Fell Omen grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1100)                  -- "Defeat the boss" (Resetting)
+    }},
+    -- Stormveil Castle
+    {category = "Boss", subcategory = "Stormveil Castle", name = "Godrick the Grafted | Defeated", flags = {
+        FLAG(10000800),                 -- isDefeated
+        FLAG(10000801),                 -- isEncountered
+        FLAG(9101),                     -- Defeat the boss, the king of grafts - ボス撃破 接ぎ木の王 (Loot, common funcs)
+        FLAG(510010, ALWAYS_FALSE),     -- Loot already given.
+        FLAG(61101, ALWAYS_TRUE),       -- Defeat the boss, the king of grafts - ボス撃破 接ぎ木の王
+        FLAG(3269, ALWAYS_FALSE),       -- Event status_After defeating Godrick - イベント状態_ゴドリック撃破後 (Hides Gostoc if he was present)
+        FLAG(10008540, ALWAYS_FALSE),   -- Close the door after Godrick so that you can't just walk out of the boss fight. Let the player have the satisfaction of opening it themselves.
+        FLAG(71000, ALWAYS_FALSE),      -- Godrick the Grafted grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1101)                      -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Stormveil Castle", name = "Grafted Scion | Defeated", flags = {
+        FLAG(10010800),             -- isDefeated
+        FLAG(10010801, function() return ef.getFlag(101):getValue() end),           -- isEncountered: Disabled because it blocks the back entrance
+        --FLAG(101),                -- Reach the tutorial map - チュートリアルマップ到達: Disabled. This flag determines which side of the boss you enter from, but the script has no idea which side you're on. Overridden by isEncountered flag.
+        FLAG(9103),                 -- Defeat the boss Grafted spider - ボス撃破 接ぎ木の蜘蛛 (Loot, common funcs)
+        FLAG(510030),               -- Loot already given
+        FLAG(61103, ALWAYS_TRUE),   -- Defeat the boss Grafted spider - ボス撃破 接ぎ木の蜘蛛
+        FLAG(1103)                  -- "Defeat the boss" (Resetting)
+    }},
+    -- Weeping Peninsula
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Ancient Hero of Zamor | Defeated", flags = {
+        FLAG(1042330800),           -- isDefeated, Loot
+        FLAG(1042337100)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Cemetery Shade | Defeated", flags = {
+        FLAG(30000800),             -- isDefeated
+        FLAG(9200),                 -- Defeat the boss m30_00 Underground Cemetery 1-1 - ボス撃破 m30_00 地下墓地１－１ (Loot, common funcs)
+        FLAG(520000),               -- Loot already given
+        FLAG(61200, ALWAYS_TRUE),   -- Defeat the boss m30_00 Underground Cemetery 1-1 - ボス撃破 m30_00 地下墓地１－１
+        FLAG(1200)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Deathbird | Defeated", flags = {
+        FLAG(1044320800),           -- isDefeated, Loot
+        FLAG(1044327400)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Erdtree Avatar | Defeated", flags = {
+        FLAG(1043330800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65080, ALWAYS_TRUE),   -- Elixir Material: One-time protection - エリクサー素材：一度きりの守り
+        FLAG(65090, ALWAYS_TRUE)    -- Elixir Material: Temporary HP Regeneration - エリクサー素材：一時的HPリジェネ
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Erdtree Burial Watchdog | Defeated", flags = {
+        FLAG(30010800),             -- isDefeated
+        FLAG(9201),                 -- Defeat the boss m30_01 Catacombs 1-2 - ボス撃破 m30_01 地下墓地１－２ (Loot, common funcs)
+        FLAG(520010),               -- Loot already given
+        FLAG(61201, ALWAYS_TRUE),   -- Defeat the boss m30_01 Catacombs 1-2 - ボス撃破 m30_01 地下墓地１－２
+        FLAG(1201)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Leonine Misbegotten | Defeated", flags = {
+        FLAG(1043300800),           -- isDefeated
+        FLAG(9180),                 -- Defeat the boss m60_00 Fort (green) - ボス撃破 m60_00 砦（緑） (Loot, common funcs)
+        FLAG(510800),               -- Loot already given
+        FLAG(61180, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破
+        FLAG(76161, ALWAYS_FALSE),  -- Morne Moangrave grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1180)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Miranda the Blighted Bloom | Defeated", flags = {
+        FLAG(31020800),             -- isDefeated
+        FLAG(9230),                 -- Defeat the boss m31_00 Cave 1-1 - ボス撃破 m31_00 洞窟１－１ (Loot, common funcs)
+        FLAG(520300),               -- Loot already given
+        FLAG(61230, ALWAYS_TRUE),   -- Defeat the boss m31_00 Cave 1-1 - ボス撃破 m31_00 洞窟１－１
+        FLAG(1230)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1044320850),           -- isDefeated
+        FLAG(1044327410),           -- Loot already given
+        FLAG(65888, ALWAYS_TRUE)    -- Possession of magic stone: Playing hard - 魔石所持：剛力弾き
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Runebear | Defeated", flags = {
+        FLAG(31010800),             -- isDefeated
+        FLAG(31010801),             -- isEncountered
+        FLAG(9231),                 -- Defeat the boss m31_01 Cave 1-2 - ボス撃破 m31_01 洞窟１－２ (Loot, common funcs)
+        FLAG(520310),               -- Loot already given
+        FLAG(61231, ALWAYS_TRUE),   -- Defeat the boss m31_01 Cave 1-2 - ボス撃破 m31_01 洞窟１－２
+        FLAG(1231)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Weeping Peninsula", name = "Scaly Misbegotten | Defeated", flags = {
+        FLAG(32000800),             -- isDefeated
+        FLAG(32000801),             -- isEncountered
+        FLAG(32000590),             -- Door opened
+        FLAG(9260),                 -- Defeat the boss m32_00 Mine 1-1 - ボス撃破 m32_00 坑道１－１ (Loot, common funcs)
+        FLAG(520600),               -- Loot already given
+        FLAG(61260, ALWAYS_TRUE),   -- Defeat the boss m32_00 Mine 1-1 - ボス撃破 m32_00 坑道１－１
+        FLAG(1260)                  -- "Defeat the boss" (Resetting)
+    }},
+    --[[ Greater Liurnia ]]
+    -- Liurnia Main
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Adan, Thief of Fire | Defeated", flags = {
+        FLAG(1038410800),           -- isDefeated
+        FLAG(530245)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Bell Bearing Hunter | Defeated", flags = {
+        FLAG(1037460800),           -- isDefeated
+        --FLAG(1037467400)            -- Loot already given, Disabled: no point in dupes
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Bloodhound Knight | Defeated", flags = {
+        FLAG(31050800),             -- isDefeated
+        FLAG(31050801),             -- isEncountered
+        FLAG(9237),                 -- Defeat the boss m31_05 Cave 2-2 - ボス撃破 m31_05 洞窟２－２ (Loot, common funcs)
+        FLAG(520370),               -- Loot already given
+        FLAG(61237, ALWAYS_TRUE),   -- Defeat the boss m31_05 Cave 2-2 - ボス撃破 m31_05 洞窟２－２
+        FLAG(1237)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Bols, Carian Knight | Defeated", flags = {
+        FLAG(1033450800),           -- isDefeated
+        FLAG(530250)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Cleanrot Knight | Defeated", flags = {
+        FLAG(31040800),             -- isDefeated
+        FLAG(9236),                 -- Defeat the boss m31_04 Cave 2-1 - ボス撃破 m31_04 洞窟２－１ (Loot, common funcs)
+        FLAG(520360),               -- Loot already given
+        FLAG(61236, ALWAYS_TRUE),    -- Defeat the boss m31_04 Cave 2-1 - ボス撃破 m31_04 洞窟２－１
+        FLAG(1236)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Crystalian | Defeated", flags = {
+        FLAG(32020800),             -- isDefeated
+        FLAG(9262),                 -- Defeat the boss m32_02 Mine 2-1 - ボス撃破 m32_02 坑道２－１ (Loot, common funcs)
+        --FLAG(520620),             -- Loot already given, Disabled: no point in dupes for a key item.
+        FLAG(61262, ALWAYS_TRUE),   -- Defeat the boss m32_02 Mine 2-1 - ボス撃破 m32_02 坑道２－１
+        FLAG(1262)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Crystalian Duo | Defeated", flags = {
+        FLAG(31060800),             -- isDefeated
+        FLAG(9238),                 -- Defeat the boss m31_06 Cave 2-3 - ボス撃破 m31_06 洞窟２－３ (Loot, common funcs)
+        FLAG(520380),               -- Loot already given
+        FLAG(61238, ALWAYS_TRUE),   -- Defeat the boss m31_06 Cave 2-3 - ボス撃破 m31_06 洞窟２－３
+        FLAG(1238)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Death Rite Bird | Defeated", flags = {
+        FLAG(1036450800),           -- isDefeated, Loot
+        FLAG(1036457400)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Deathbird | Defeated", flags = {
+        FLAG(1037420800),           -- isDefeated, Loot
+        FLAG(1037427400)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Erdtree Avatar (NE) | Defeated", flags = {
+        FLAG(1038480800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65290, ALWAYS_TRUE),   -- Elixir Material: Temporary magic attack power UP - エリクサー素材：一時的魔法攻撃力UP
+        FLAG(65300, ALWAYS_TRUE),   -- Elixir Material: Temporary lightning attack power UP - エリクサー素材：一時的雷攻撃力UP
+        FLAG(65310, ALWAYS_TRUE)    -- Elixir Material: Temporary sacred attack power UP - エリクサー素材：一時的神聖攻撃力UP
+
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Erdtree Avatar (SW) | Defeated", flags = {
+        FLAG(1033430800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65040, ALWAYS_TRUE),   -- Elixir Material: FP Recovery 20% A - エリクサー素材：FP回復20％A
+        FLAG(65160, ALWAYS_TRUE)    -- Elixir Material: Explosion A - エリクサー素材：爆発A
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Erdtree Burial Watchdog | Defeated", flags = {
+        FLAG(30060800),             -- isDefeated
+        FLAG(9207),                 -- Defeat the boss m30_07 Catacombs 2-3 - ボス撃破 m30_07 地下墓地２－３ (Loot, common funcs)
+        FLAG(520070),               -- Loot already given
+        FLAG(61207, ALWAYS_TRUE),   -- Defeat the boss m30_07 Catacombs 2-3 - ボス撃破 m30_07 地下墓地２－３
+        FLAG(1207)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Glintstone Dragon Smarag | Defeated", flags = {
+        FLAG(1034450800),           -- isDefeated, Loot, Cathedral of Dragon Communion
+        FLAG(530210)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Magma Wyrm Makar | Defeated", flags = {
+        FLAG(39200800),             -- isDefeated
+        FLAG(39200801),             -- isEncountered
+        FLAG(9126),                 -- Defeat the boss: Cliff tunnel - ボス撃破 (Loot, common funcs)
+        FLAG(510260),               -- Loot already given
+        FLAG(61126, ALWAYS_TRUE),   -- Defeat the boss: Cliff tunnel - ボス撃破
+        FLAG(73900, ALWAYS_FALSE),  -- Magma Wyrm grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1126)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1039430800),           -- isDefeated, Loot
+        FLAG(1039437400),           -- Loot already given
+        FLAG(65882, ALWAYS_TRUE)    -- Possession of magic stone: Gae Bulg - 魔石所持：ゲイボルグ
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Omenkiller | Defeated", flags = {
+        FLAG(1035420800),           -- isDefeated, Loot
+        FLAG(530225)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Onyx Lord | Defeated", flags = {
+        FLAG(1036500800),           -- isDefeated, Loot
+        FLAG(530255)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Royal Knight Loretta | Defeated", flags = {
+        FLAG(1035500800),           -- isDefeated
+        FLAG(1035500801),           -- isEncountered
+        FLAG(9181),                 -- Defeat the boss m60_00 Fort (lake) - ボス撃破 m60_00 砦（湖）(Loot, common funcs)
+        FLAG(510810),               -- Loot already given
+        FLAG(61181, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破
+        FLAG(65852, ALWAYS_TRUE),   -- Possession of magic stone: Dive enchantment slash - 魔石所持：飛び込みエンチャ斬り
+        FLAG(76232, ALWAYS_FALSE),  -- Royal Moongazing Grounds grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1181)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Royal Revenant | Defeated", flags = {
+        FLAG(1034480800)            -- isDefeated, no other relevant flags really. No loot
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Spirit-Caller Snail | Defeated", flags = {
+        FLAG(30030800),             -- isDefeated
+        FLAG(9206),                 -- Defeat the boss m30_06 Catacombs 2-2 - ボス撃破 m30_06 地下墓地２－２ (Loot, common funcs)
+        FLAG(520060),               -- Loot already given
+        FLAG(61206, ALWAYS_TRUE),   -- Defeat the boss m30_06 Catacombs 2-2 - ボス撃破 m30_06 地下墓地２－２
+        FLAG(1206)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Liurnia of the Lakes", name = "Tibia Mariner | Defeated", flags = {
+        FLAG(1039440800),           -- isDefeated, Loot
+        --FLAG(530240)              -- Loot already given. Disabled: Key item deduplication.
+        -- One of the loot items is a Deathroot, the other is a spirit ash. There's really no point to get multiple copies of a spirit ash (can't even carry them), and more deathroots will just clog your inventory.
+    }},
+    -- Bellum Highway
+    {category = "Boss", subcategory = "Bellum Highway", name = "Black Knife Assassin | Defeated", flags = {
+        FLAG(30050850),             -- isDefeated
+        FLAG(9221),                 -- Defeat the boss m30_05 Catacombs 2-1 Hidden - ボス撃破 m30_05 地下墓地２－１ 隠し (Loot, common funcs)
+        --FLAG(520210)              -- Loot already given - game-managed as one of the rewards is a key item, and the other has no value in being duplicated.
+                                    -- Also, disabling 520210 and re-killing the boss otherwise duplicates Black Knifeprint item, which should not be possible.
+                                    -- Use ItemGib if you want more Assassin's Cerulean Daggers for some reason
+        FLAG(61221, ALWAYS_TRUE),   -- No name in script, but same as other bosses with a "Defeat the Boss" flag
+        FLAG(1221)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Bellum Highway", name = "Cemetery Shade | Defeated", flags = {
+        FLAG(30050800),             -- isDefeated
+        FLAG(9205),                 -- Defeat the boss m30_05 Catacombs 2-1 - ボス撃破 m30_05 地下墓地２－１ (Loot, common funcs)
+        FLAG(520050),               -- Loot already given
+        FLAG(61205, ALWAYS_TRUE),   -- Defeat the boss m30_05 Catacombs 2-1 - ボス撃破 m30_05 地下墓地２－１
+        FLAG(1205)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Bellum Highway", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1036480800),           -- isDefeated, Loot
+        FLAG(1036487400),           -- Loot already given
+        FLAG(65835, ALWAYS_TRUE)    -- Possession of magic stone: Stepping up - 魔石所持：踏み込み突き上げ
+    }},
+    -- Moonlight Altar
+    {category = "Boss", subcategory = "Moonlight Altar", name = "Alecto, Black Knife Ringleader | Defeated", flags = {
+        FLAG(1033420800),           -- isDefeated, Loot
+        FLAG(530265)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Moonlight Altar", name = "Glintstone Dragon Adula | Defeated", flags = {
+        FLAG(1034420800),           -- isDefeated (second encounter), blocks first encounter, loot
+        FLAG(1034420800),           -- isDefeated (first encounter)
+        FLAG(530260)                -- Loot already given
+    }},
+    -- Academy of Raya Lucaria
+    {category = "Boss", subcategory = "Academy of Raya Lucaria", name = "Red Wolf of Radagon | Defeated", flags = {
+        FLAG(14000850),             -- isDefeated
+        FLAG(14000851),             -- isEncountered
+        FLAG(9117),                 -- Defeat the boss - ボス撃破 神肌ガリ (Loot, common funcs)
+        FLAG(61117, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 神肌ガリ
+        --FLAG(60440),              -- Growth Ban: Memory Slot 4 - 成長解禁：記憶スロット4, Disabled: deduplicate Memory Stone
+        FLAG(71401, ALWAYS_FALSE),  -- Debate Parlour grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1117)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Academy of Raya Lucaria", name = "Rennala, Queen of the Full Moon | Defeated", flags = {
+        FLAG(14000800),                 -- isDefeated, Sanctuary effect in post-boss room
+        FLAG(14000801),                 -- isEncountered
+        FLAG(14000804),                 -- Some sort of completion flag, must be false during phase 2 or the fight never ends
+        FLAG(9118),                     -- Defeat the boss Renara - ボス撃破 レナラ (Loot, common funcs), post-fight NPC Renalla
+        FLAG(197, ALWAYS_FALSE),        -- Large Rune Possession Check: Renara - 大ルーン所持チェック：レナラ, Loot already given
+                                        -- NB: Player will get an "Unable to acquire" message. No workaround present - same flag for Remembrance and Great Rune
+        FLAG(61118, ALWAYS_TRUE),       -- Defeat the boss Renara - ボス撃破 レナラ
+        FLAG(1118),                     -- "Defeat the boss" (Resetting)
+        FLAG(71400, ALWAYS_FALSE),      -- Raya Lucaria Grand Library grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(14008556),                 -- Boss arena door status
+        FLAG(14009202, ALWAYS_FALSE),   -- Initial post-fight speech "Where did ye flee, my sweetings?" etc
+        FLAG(14009205, ALWAYS_FALSE),   -- Initial post-fight conversation "Ah, thou / Is it thy wish to be born anew?" etc
+        --FLAG(3371, ALWAYS_FALSE),     -- Jerren outside the arena. DISABLED: Unlike Sellen's appearances in the following flags, disabling this one PERMANENTLY REMOVES JERREN FROM THE GAME.
+        FLAG(3468, ALWAYS_FALSE),       -- Event status_ returned to the academy. (Sellen in boss room, automatically gets re-enabled once Rennala is dead (convenient!))
+        FLAG(3469, ALWAYS_FALSE)        -- Event state_I became a magic magic ball. (Sellen orb in boss room, automatically gets re-enabled once Rennala is dead (convenient!))
+    }},
+    --[[ Greater Caelid ]]
+    -- Caelid main
+    {category = "Boss", subcategory = "Caelid", name = "Cemetery Shade | Defeated", flags = {
+        FLAG(30150800),             -- isDefeated
+        FLAG(9215),                 -- Defeat the boss m30_15 Catacombs 4-2 - ボス撃破 m30_15 地下墓地４－２ (Loot, common funcs)
+        FLAG(520150),               -- Loot already given
+        FLAG(61215, ALWAYS_TRUE),   -- Defeat the boss m30_15 Catacombs 4-2 - ボス撃破 m30_15 地下墓地４－２
+        FLAG(1215)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Commander O'Niel | Defeated", flags = {
+        FLAG(1049380800),           -- isDefeated, Loot
+        FLAG(530405),               -- Loot already given
+        FLAG(76412, ALWAYS_FALSE)   -- Heart of Aeonia grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Death Rite Bird | Defeated", flags = {
+        FLAG(1049370850),           -- isDefeated, Loot
+        FLAG(1049377110)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Decaying Ekzykes | Defeated", flags = {
+        FLAG(1048370800),           -- isDefeated, Loot, Cathedral of Dragon Communion unlock
+        FLAG(530400)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Erdtree Burial Watchdog | Defeated", flags = {
+        FLAG(30140800),             -- isDefeated
+        FLAG(9214),                 -- Defeat the boss m30_14 Catacombs 4-1 - ボス撃破 m30_14 地下墓地４－１ (Loot, common funcs)
+        FLAG(520140),               -- Loot already given
+        FLAG(61214, ALWAYS_TRUE),   -- Defeat the boss m30_14 Catacombs 4-1 - ボス撃破 m30_14 地下墓地４－１
+        FLAG(1214)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Fallingstar Beast | Defeated", flags = {
+        FLAG(32080800),             -- isDefeated
+        FLAG(32080801),             -- isEncountered
+        FLAG(9267),                 -- Defeat the boss m32_08 Mine 4-2 - ボス撃破 m32_08 坑道４－２ (Loot, common funcs)
+        FLAG(520670),               -- Loot already given
+        FLAG(61267, ALWAYS_TRUE),   -- Defeat the boss m32_08 Mine 4-2 - ボス撃破 m32_08 坑道４－２
+        FLAG(1267),                 -- "Defeat the boss" (Resetting)
+        FLAG(32088590)              -- Door
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Frenzied Duelist | Defeated", flags = {
+        FLAG(31210800),             -- isDefeated
+        FLAG(31210801),             -- isEncountered
+        FLAG(9243),                 -- Defeat the boss m31_10 Cave 4-1 - ボス撃破 m31_10 洞窟４－１ (Loot, common funcs)
+        FLAG(520430),               -- Loot already given
+        FLAG(61243, ALWAYS_TRUE),   -- Defeat the boss m31_10 Cave 4-1 - ボス撃破 m31_10 洞窟４－１
+        FLAG(1243)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Mad Pumpkin Head Duo | Defeated", flags = {
+        FLAG(1048400800)            -- isDefeated, no loot to give
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Magma Wyrm | Defeated", flags = {
+        FLAG(32070800),             -- isDefeated
+        FLAG(32070801),             -- isEncountered
+        FLAG(9266),                 -- Defeat the boss m32_07 Mine 4-1 - ボス撃破 m32_07 坑道４－１ (Loot, common funcs)
+        FLAG(520660),               -- Loot already given
+        FLAG(61266, ALWAYS_TRUE),   -- Defeat the boss m32_07 Mine 4-1 - ボス撃破 m32_07 坑道４－１
+        FLAG(1266),                 -- "Defeat the boss" (Resetting)
+        FLAG(32078540)              -- Door
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1049370800),           -- isDefeated, Loot
+        FLAG(1049377100),           -- Loot already given
+        FLAG(65874, ALWAYS_TRUE)    -- Possession of magic stone: Two-shot poison - 魔石所持：二撃必毒
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Nox Swordstress & Nox Priest | Defeated", flags = {
+        FLAG(1049390800),           -- isDefeated, Loot
+        FLAG(1049397800),           -- Loot already given
+        FLAG(76415, ALWAYS_FALSE)   -- Chair-Crypt of Sellia grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Putrid Avatar | Defeated", flags = {
+        FLAG(1047400800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65100, ALWAYS_TRUE),   -- Temporary Stamina Regeneration - エリクサー素材：一時的スタミナリジェネ
+        FLAG(65280, ALWAYS_TRUE)    -- Temporary Flame Attack Power UP - エリクサー素材：一時的炎攻撃力UP
+    }},
+    {category = "Boss", subcategory = "Caelid", name = "Putrid Crystallian Trio | Defeated", flags = {
+        FLAG(31110800),             -- isDefeated
+        FLAG(9246),                 -- Defeat the boss m31_21 Cave 4-4 - ボス撃破 m31_21 洞窟４－４ (Loot, common funcs)
+        FLAG(520460),               -- Loot already given
+        FLAG(61246, ALWAYS_TRUE),   -- Defeat the boss m31_21 Cave 4-4 - ボス撃破 m31_21 洞窟４－４
+        FLAG(1246)                  -- "Defeat the boss" (Resetting)
+    }},
+    -- Greyoll's Dragonbarrow
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Battlemage Hugues | Defeated", flags = {
+        FLAG(1049390850),           -- isDefeated, Loot
+        FLAG(1049397850)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Beastman of Farum Azula | Defeated", flags = {
+        FLAG(31100800),             -- isDefeated
+        FLAG(31100801),             -- isEncountered
+        FLAG(9244),                 -- Defeat the boss m31_11 Cave 4-2 - ボス撃破 m31_11 洞窟４－２ (Loot, common funcs)
+        FLAG(520440),               -- Loot already given
+        FLAG(61244, ALWAYS_TRUE),   -- Defeat the boss m31_11 Cave 4-2 - ボス撃破 m31_11 洞窟４－２
+        FLAG(1244)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Bell Bearing Hunter | Defeated", flags = {
+        FLAG(1048410800),           -- isDefeated, Loot
+        --FLAG(1048417800)          -- Loot already given, Disabled: Key item deduplication
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Black Blade Kindred | Defeated", flags = {
+        FLAG(1051430800),           -- isDefeated, Loot
+        FLAG(530425)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Cleanrot Knight | Defeated", flags = {
+        FLAG(31200800),             -- isDefeated
+        FLAG(9245),                 -- Defeat the boss m31_20 Cave 4-3 - ボス撃破 m31_20 洞窟４－３ (Loot, common funcs)
+        FLAG(520450),               -- Loot already given
+        FLAG(61245, ALWAYS_TRUE),   -- Defeat the boss m31_20 Cave 4-3 - ボス撃破 m31_20 洞窟４－３
+        FLAG(1245)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Elder Dragon Greyoll | Defeated", flags = {
+        FLAG(1050400800),           -- isDefeated, Loot, Cathedral of Dragon Communion unlock
+        FLAG(1050400599),           -- Makes Greyoll actually idle instead of swooping down and despawning
+        FLAG(1050407800)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Flying Dragon Greyll | Defeated", flags = {
+        FLAG(1052410800),           -- isDefeated
+        FLAG(530420),               -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Godskin Apostle | Defeated", flags = {
+        FLAG(34130800),             -- isDefeated
+        FLAG(9173),                 -- Defeat the boss m34_13 Tower of God 4 - ボス撃破 m34_13 神の塔４ (Loot, common funcs)
+        FLAG(510730),               -- Loot already given
+        FLAG(61173, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 
+        FLAG(1173)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1052410850),           -- isDefeated, Loot
+        FLAG(1052417100),           -- Loot already given
+        FLAG(65819, ALWAYS_TRUE)    -- Possession of magic stone: Galeman step - 魔石所持：ゲールマンステップ
+    }},
+    {category = "Boss", subcategory = "Greyoll's Dragonbarrow", name = "Putrid Avatar | Defeated", flags = {
+        FLAG(1051400800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65110, ALWAYS_TRUE),   -- Elixir Material: Temporary overall cut rate UP - エリクサー素材：一時的全カット率UP
+        FLAG(65260, ALWAYS_TRUE)    -- Elixir Material: Temporary core collapse up - エリクサー素材：一時的体幹崩しアップ
+    }},
+    -- Redmane Castle
+    {category = "Boss", subcategory = "Redmane Castle", name = "Crucible Knight & Misbegotten Warrior | Defeated", flags = {
+        FLAG(1051360800),           -- isDefeated
+        FLAG(9183),                 -- Defeat the boss m60_00 Fort (plain) - ボス撃破 m60_00 砦（平原） (Loot, common funcs)
+        FLAG(510830),               -- Loot already given
+        FLAG(61183, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破
+        FLAG(1183),                 -- "Defeat the boss" (Resetting)
+        FLAG(76419, ALWAYS_FALSE)   -- Redmane Castle Plaza grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Redmane Castle", name = "Putrid Tree Spirit | Defeated", flags = {
+        FLAG(30160800),             -- isDefeated
+        FLAG(9216),                 -- Defeat the boss m30_16 Catacombs 4-3 - ボス撃破 m30_16 地下墓地４－３ (Loot, common funcs)
+        FLAG(510260),               -- Loot already given
+        FLAG(61216, ALWAYS_TRUE),   -- Defeat the boss m30_16 Catacombs 4-3 - ボス撃破 m30_16 地下墓地４－３
+        FLAG(1216)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Redmane Castle", name = "Starscourge Radahn | Defeated", flags = {
+        -- NB: You will get warped if you enable this. Not sure if won'tfix or can'tfix tbh
+        FLAG(1252380800),           -- isDefeated
+        FLAG(1252380801),           -- isEncountered (Unused?)
+        FLAG(9130),                 -- Defeat the boss Radan - ボス撃破 ラダーン (Loot, common funcs)
+        FLAG(510300, ALWAYS_FALSE), -- Loot already given
+        FLAG(61130, ALWAYS_TRUE),   -- Defeat the boss Radan - ボス撃破 ラダーン
+        FLAG(1130),                 -- "Defeat the boss" (Resetting)
+        FLAG(3613, ALWAYS_FALSE),   -- Blaidd at the grace
+        FLAG(3668, ALWAYS_FALSE),   -- Iron Fist Alexander in the boss arena
+        FLAG(76422),                -- Starscourge Radahn site of grace. The game doesn't let you leave until you light this normally, so you can have it. But no warping in while he's alive!
+        FLAG(310),                  -- Natural disaster: Green meteorite - 天変地異：緑隕石
+        FLAG(73016),                -- Grace for War-Dead Catacombs, to prevent a semi-softlock where you warp here and can't warp out until the boss is dead
+        FLAG(910),                  -- Responsible for many things post-cutscene
+        FLAG(9414),                 -- Enables wait between Radahn dying and the cutscene
+        FLAG(9415),                 -- Disables 910 if true
+        FLAG(9416),                 -- Disables welcome message when being warped from Radahn cutscene
+        FLAG(9417)                  -- A red mark was made on the map
+    }},
+    -- [[ Altus Plateau ]]
+    -- Altus main
+    {category = "Boss", subcategory = "Altus Plateau", name = "Ancient Dragon Lansseax | Defeated", flags = {
+        FLAG(1037510800),           -- Second encounter isDefeated, disables first encounter
+        FLAG(1037510810),           -- First encounter isDefeated, slightly reduces second encounter HP
+                                    -- Fun fact: Beat the first encounter and then repeatedly aggro and deaggro the second encounter to kill it the pacifist way!
+        FLAG(1041520820),           -- Second encounter isEncountered, disables first encounter
+        FLAG(530300)                -- Loot already given
+
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Ancient Hero of Zamor | Defeated", flags = {
+        FLAG(30080800),             -- isDefeated
+        FLAG(9208),                 -- Defeat the boss m30_08 Catacombs 3-1 - ボス撃破 m30_08 地下墓地３－１ (Loot, common funcs)
+        FLAG(520080),               -- Loot already given
+        FLAG(61208, ALWAYS_TRUE),   -- Defeat the boss m30_08 Catacombs 3-1 - ボス撃破 m30_08 地下墓地３－１
+        FLAG(1208)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Black Knife Assassin (Sage's Cave) | Defeated", flags = {
+        FLAG(31190800),             -- isDefeated
+        FLAG(9242),                 -- Defeat the boss m31_19 Cave 3-4 - ボス撃破 m31_19 洞窟３－４ (Loot, common funcs)
+        FLAG(520420),               -- Loot already given
+        FLAG(61242, ALWAYS_TRUE),   -- Defeat the boss m31_19 Cave 3-4 - ボス撃破 m31_19 洞窟３－４
+        FLAG(1242)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Black Knife Assassin (Sainted Hero's Grave) | Defeated", flags = {
+        FLAG(1040520800),           -- isDefeated, Loot
+        FLAG(530350)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Crystalian Duo | Defeated", flags = {
+        FLAG(32050800),             -- isDefeated
+        FLAG(32050801),             -- isEncountered
+        FLAG(9265),                 -- Defeat the boss m32_05 Mine 3-3 - ボス撃破 m32_05 坑道３－３ (Loot, common funcs)
+        --FLAG(520650),             -- Loot already given, Disabled: Key item, award to player & do not give again
+        FLAG(61265, ALWAYS_TRUE),   -- Defeat the boss m32_05 Mine 3-3 - ボス撃破 m32_05 坑道３－３
+        FLAG(1265),                 -- "Defeat the boss" (Resetting)
+        FLAG(32058590)              -- Door
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Demi-Human Queen Gilika | Defeated", flags = {
+        FLAG(1038510800)            -- isDefeated, no loot to give
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Elemer of the Briar | Defeated", flags = {
+        FLAG(1039540800),           -- isDefeated
+        FLAG(9182),                 -- Defeat the boss m60_00 Fort (Takayama) - ボス撃破 m60_00 砦（高山） (Loot, common funcs)
+        FLAG(510820),               -- Loot already given
+        FLAG(61182, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破
+        FLAG(1182),                 -- "Defeat the boss" (Resetting)
+        FLAG(76322, ALWAYS_FALSE)   -- Castellan's Hall grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Erdtree Burial Watchdog | Defeated", flags = {
+        FLAG(30070800),             -- isDefeated
+        FLAG(9212),                 -- Defeat the boss m30_12 Catacombs 3-5 - ボス撃破 m30_12 地下墓地３－５ (Loot, common funcs)
+        --FLAG(520120),             -- Loot already given, Disabled: Key item deduplication
+        FLAG(61212, ALWAYS_TRUE),   -- Defeat the boss m30_12 Catacombs 3-5 - ボス撃破 m30_12 地下墓地３－５
+        FLAG(1212),                 -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Fallingstar Beast | Defeated", flags = {
+        FLAG(1041500800),           -- isDefeated, Loot
+        FLAG(530310)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Godefroy the Grafted | Defeated", flags = {
+        FLAG(1039500800),           -- isDefeated, Loot
+        FLAG(1039507100)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Godskin Apostle | Defeated", flags = {
+        FLAG(1042550800),           -- isDefeated, Loot
+        FLAG(530325),               -- Loot already given
+        FLAG(76313, ALWAYS_FALSE)   -- Windmill Heights grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Necromancer Garris | Defeated", flags = {
+        FLAG(31190850),             -- isDefeated
+        FLAG(9249),                 -- Defeat the boss m31_19 Cave 3-4 Hidden - ボス撃破 m31_19 洞窟３－４ 隠し (Loot, common funcs)
+        FLAG(520490),               -- Loot already given
+        FLAG(61249, ALWAYS_TRUE),   -- "Defeat the boss" flag, no leaked name
+        FLAG(1249)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1039510800),           -- isDefeated, Loot
+        FLAG(1039517200),           -- Loot already given
+        FLAG(65868, ALWAYS_TRUE)    -- Magic Stone Possession: Range Holy Enchantment - 魔石所持：範囲ホーリーエンチャント
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Omenkiller & Miranda the Blighted Bloom | Defeated", flags = {
+        FLAG(31180800),             -- isDefeated
+        FLAG(9241),                 -- Defeat the boss m31_18 Cave 3-3 - ボス撃破 m31_18 洞窟３－３(Loot, common funcs)
+        FLAG(520410),               -- Loot already given
+        FLAG(61241, ALWAYS_TRUE),   -- Defeat the boss m31_18 Cave 3-3 - ボス撃破 m31_18 洞窟３－３
+        FLAG(1241)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Perfumer Tricia & Misbegotten Warrior | Defeated", flags = {
+        FLAG(30120800),             -- isDefeated
+        FLAG(9211),                 -- Defeat the boss m30_11 Catacombs 3-4 - ボス撃破 m30_11 地下墓地３－４ (Loot, common funcs)
+        FLAG(520110),               -- Loot already given
+        FLAG(61211, ALWAYS_TRUE),   -- Defeat the boss m30_11 Catacombs 3-4 - ボス撃破 m30_11 地下墓地３－４
+        FLAG(1211)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Sanguine Noble | Defeated", flags = {
+        FLAG(1040530800)            -- isDefeated
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Stonedigger Troll | Defeated", flags = {
+        FLAG(32040800),             -- isDefeated
+        FLAG(9263),                 -- Defeat the boss m32_04 Mine 3-1 - ボス撃破 m32_04 坑道３－１ (Loot, common funcs)
+        FLAG(520630),               -- Loot already given
+        FLAG(61263, ALWAYS_TRUE),   -- Defeat the boss m32_04 Mine 3-1 - ボス撃破 m32_04 坑道３－１
+        FLAG(1263)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Tibia Mariner | Defeated", flags = {
+        FLAG(1038520800),           -- isDefeated, Loot
+        --FLAG(530385)              -- Loot already given, Disabled: Key item deduplication
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Tree Sentinel Duo | Defeated", flags = {
+        FLAG(1041510800),           -- isDefeated, Loot
+        FLAG(530335)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Altus Plateau", name = "Wormface | Defeated", flags = {
+        FLAG(1041530800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65000, ALWAYS_TRUE),   -- Elixir Material: Temporary MAXHP up - エリクサー素材：一時的MAXHPアップ
+        FLAG(65060, ALWAYS_TRUE)    -- Elixir Material: Full recovery from abnormal conditions + Temporary full resistance increase - エリクサー素材：状態異常全回復＋一時的全耐性アップ
+    }},
+    -- Capital Outskirts
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Bell Bearing Hunter | Defeated", flags = {
+        FLAG(1043530800),           -- isDefeated, Loot
+        --FLAG(1043537400)          -- Loot already given, Disabled: Key item deduplication
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Crucible Knight & Crucible Knight Ordovis | Defeated", flags = {
+        FLAG(30100800),             -- isDefeated
+        FLAG(9210),                 -- Defeat the boss m30_10 Catacombs 3-3 - ボス撃破 m30_10 地下墓地３－３ (Loot, common funcs)
+        FLAG(520100),               -- Loot already given
+        FLAG(61210, ALWAYS_TRUE),   -- Defeat the boss m30_10 Catacombs 3-3 - ボス撃破 m30_10 地下墓地３－３
+        FLAG(1210)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Deathbird | Defeated", flags = {
+        FLAG(1044530800),           -- isDefeated, Loot
+        FLAG(1044537300)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Draconic Tree Sentinel | Defeated", flags = {
+        FLAG(1045520800),           -- isDefeated, Loot
+        FLAG(530315)                -- Loot already given
+
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Fell Twins | Defeated", flags = {
+        -- Bet you didn't expect these guys here, did you? This is where the game considers them!
+        FLAG(34140850),             -- isDefeated
+        FLAG(34140851),             -- isEncountered
+        FLAG(34140865),             -- Required for WarpPlayer to work
+        FLAG(9174),                 -- Defeat the boss m34_14 Tower of God 5 - ボス撃破 m34_14 神の塔５ (Loot, common funcs)
+        FLAG(510740),               -- Loot already given
+        --FLAG(10740, ALWAYS_TRUE), -- Game has a typo lmao, this is in the script where the second "Defeat the boss" flag should be, but is an ItemLot, not a flag. Normal ID would be 61174 and that flag does exist.
+        FLAG(1174)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Grave Warden Duelist | Defeated", flags = {
+        FLAG(30130800),             -- isDefeated
+        FLAG(9213),                 -- Defeat the boss m30_13 Catacombs 3-6 - ボス撃破 m30_13 地下墓地３－６ (Loot, common funcs)
+        FLAG(520130),               -- Loot already given
+        FLAG(61213, ALWAYS_TRUE),   -- Defeat the boss m30_13 Catacombs 3-6 - ボス撃破 m30_13 地下墓地３－６
+        FLAG(1213)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Capital Outskirts", name = "Onyx Lord | Defeated", flags = {
+        FLAG(34120800),             -- isDefeated
+        FLAG(34120801),             -- isEncountered
+        FLAG(9264),                 -- Defeat the boss m34_12 Mine 3-2 - ボス撃破 m34_12 坑道３－２ (Loot, common funcs)
+        FLAG(520640),               -- Loot already given
+        FLAG(61264, ALWAYS_TRUE),   -- Defeat the boss m34_12 Mine 3-2 - ボス撃破 m34_12 坑道３－２
+        FLAG(1264),                 -- "Defeat the boss" (Resetting)
+        FLAG(73432, ALWAYS_FALSE),  -- Divine Tower of West Altus: Gate grace menu icon. Cool softlock if you warp back here without killing the boss.
+        FLAG(73430, ALWAYS_FALSE)   -- Divine Tower of West Altus grace menu icon. Cool softlock if you warp behind here without killing the boss.
+    }},
+    -- Leyndell, Royal Capital
+    {category = "Boss", subcategory = "Leyndell, Royal Capital", name = "Esgar, Priest of Blood | Defeated", flags = {
+        FLAG(35000850),             -- isDefeated
+        FLAG(9222),                 -- Defeat the boss m35_00 Royal city underground sewage graveyard - ボス撃破 m35_00 王都地下下水墓地 (Loot, common funcs)
+        FLAG(520220),               -- Loot already given
+        FLAG(61222, ALWAYS_TRUE),   -- "Defeat the boss" flag, no name in leaks
+        FLAG(1222)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Leyndell, Royal Capital", name = "Godfrey, First Elden Lord | Defeated", flags = {
+        -- NB: Boss will be inactive if isEncountered is set, and then the player jumps down from Queen's Bedchamber
+        -- This is too much of a corner case for me to give a shit about
+        FLAG(11000850),             -- isDefeated
+        FLAG(11000851),             -- isEncountered
+        FLAG(9105),                 -- (Loot, common funcs)
+        --FLAG(60520),              -- Growth ban: Talisman equipment 2 - 成長解禁：タリスマン装備2, Disabled: No duplicate talisman pouches
+        FLAG(61105, ALWAYS_TRUE),   -- Defeat the boss God Frey (God Frey) - ボス撃破 ゴッドフレイ（ゴッドフレイ）
+        FLAG(1105),                 -- "Defeat the boss" (Resetting)
+        FLAG(71101)                 -- Erdtree Sanctuary grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Leyndell, Royal Capital", name = "Mohg, the Omen | Defeated", flags = {
+        FLAG(35000800),                 -- isDefeated
+        FLAG(35000801),                 -- isEncountered
+        FLAG(9125),                     -- Defeat the boss The royal capital underground sewage boss - ボス撃破 王都地下下水ボス (Loot, common funcs)
+        FLAG(510250),                   -- Loot already given
+        FLAG(61125, ALWAYS_TRUE),       -- Defeat the boss The royal capital underground sewage boss - ボス撃破 王都地下下水ボス
+        FLAG(1125),                     -- "Defeat the boss" (Resetting)
+        FLAG(35000820, ALWAYS_FALSE),   -- Close secret entrance
+        FLAG(73500)                     -- Cathedral of the Forsaken grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Leyndell, Royal Capital", name = "Morgott, the Omen King | Defeated", flags = {
+        FLAG(11000800),                 -- isDefeated, Morgott corpse on floor
+        FLAG(11000801),                 -- isEncountered
+        FLAG(9104),                     -- Defeat the boss Margit the abomination (serious) - ボス撃破 忌み鬼マルギット（本気） (Loot, common funcs)
+        FLAG(510040, ALWAYS_FALSE),     -- Loot already given
+        FLAG(61104, ALWAYS_TRUE),       -- Defeat the boss Margit the abomination (serious) - ボス撃破 忌み鬼マルギット（本気）
+        FLAG(1104),                     -- "Defeat the boss" (Resetting)
+        FLAG(11009405, ALWAYS_FALSE),   -- Corpse Morgott dialogue 1
+        FLAG(11009406, ALWAYS_FALSE),   -- Corpse Morgott dialogue 2, dies of cringe
+        FLAG(11000500),                 -- Elden Throne Grace visibility
+        FLAG(11000501),                 -- Remove post-fight Morgott fog wall
+        FLAG(9000),                     -- Clear "Cannot warp" effect
+        FLAG(71100),                    -- Elden Throne grace menu icon. Hidden so you can't warp into a living boss' arena. You have to rest at this one in vanilla, so you get it if he's dead
+        --FLAG(400001, ALWAYS_FALSE)    -- Yap sesh with Melina. NB: Will always be off when save starts. I see no reason to actually force the player through the dialog again if they've already had it, it doesn't really help.
+    }},
+    -- [[ Mt. Gelmir ]]
+    -- Gelmir main
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Demi-Human Queen Maggie | Defeated", flags = {
+        FLAG(1037530800),           -- isDefeated, Loot
+        --FLAG(60450),              -- Growth Ban: Memory Slot 5 - 成長解禁：記憶スロット5, Disabled: No duplicate memory stones!
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Demi-Human Queen Margot | Defeated", flags = {
+        FLAG(1037530800),           -- isDefeated
+        FLAG(9240),                 -- Defeat the boss m31_09 Cave 3-2 - ボス撃破 m31_09 洞窟３－２ (Loot, common funcs)
+        FLAG(520400),               -- Loot already given
+        FLAG(61240, ALWAYS_TRUE),   -- Defeat the boss m31_09 Cave 3-2 - ボス撃破 m31_09 洞窟３－２
+        FLAG(1240)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Full-Grown Fallingstar Beast | Defeated", flags = {
+        FLAG(1036540800),           -- isDefeated, Loot
+        FLAG(530375)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Kindred of Rot Duo | Defeated", flags = {
+        FLAG(31070800),             -- isDefeated
+        FLAG(31070801),             -- isEncountered (Unused?)
+        FLAG(9239),                 -- Defeat the boss m31_07 Cave 3-1 - ボス撃破 m31_07 洞窟３－１ (Loot, common funcs)
+        FLAG(520390),               -- Loot already given
+        FLAG(61239, ALWAYS_TRUE),   -- Defeat the boss m31_07 Cave 3-1 - ボス撃破 m31_07 洞窟３－１
+        FLAG(1239)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Magma Wyrm | Defeated", flags = {
+        FLAG(1035530800),           -- isDefeated, Loot, Cathedral of Dragon Communion
+        FLAG(530390),               -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Red Wolf of the Champion | Defeated", flags = {
+        FLAG(30090800),             -- isDefeated
+        FLAG(9209),                 -- Defeat the boss m30_09 Catacombs 3-2 - ボス撃破 m30_09 地下墓地３－２ (Loot, common funcs)
+        FLAG(520090),               -- Loot already given
+        FLAG(61209, ALWAYS_TRUE),   -- Defeat the boss m30_09 Catacombs 3-2 - ボス撃破 m30_09 地下墓地３－２
+        FLAG(1209)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Mt. Gelmir", name = "Ulcerated Tree Spirit | Defeated", flags = {
+        FLAG(1037540810),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65180, ALWAYS_TRUE),   -- Elixir Material: Temporary damage level reduction - エリクサー素材：一時的ダメージレベル低下
+        FLAG(65250, ALWAYS_TRUE)    -- Elixir Material: Temporary consumption FP zero (only once) - エリクサー素材：一時的消費FPゼロ（一回のみ）
+    }},
+    -- Volcano Manor
+    {category = "Boss", subcategory = "Volcano Manor", name = "Abductor Virgins | Defeated", flags = {
+        FLAG(16000860),             -- isDefeated
+        FLAG(9129),                 -- Defeat the boss - ボス撃破 (Loot, common funcs)
+        FLAG(510290),               -- Loot already given
+        FLAG(61129, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 
+        FLAG(1219)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Volcano Manor", name = "Godskin Noble | Defeated", flags = {
+        FLAG(16000850),             -- isDefeated
+        FLAG(16000851),             -- isEncountered
+        FLAG(9121),                 -- Defeat the boss Boss in the volcanic prison - ボス撃破 火山牢中ボス (Loot, common funcs)
+        FLAG(510210),               -- Loot already given
+        FLAG(61121, ALWAYS_TRUE),   -- Defeat the boss Boss in the volcanic prison - ボス撃破 火山牢中ボス
+        FLAG(1121),                 -- "Defeat the boss" (Resetting)
+        FLAG(71601),                -- Temple of Eiglay grace menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(16000520, INVERSE),    -- Move elevator to the top. Elevator gets disabled by 16000850 and will come down when boss dies like normal.
+        FLAG(16001520, INVERSE),    -- Linked elevator flag
+    }},
+    {category = "Boss", subcategory = "Volcano Manor", name = "Rykard, Lord of Blasphemy | Defeated", flags = {
+        -- Tanith is the only reason why this shit is complicated.
+        -- Ended up having to reset the whole sequence after Rykard dies.
+        FLAG(16000800),                 -- isDefeated
+        FLAG(16000801),                 -- isEncountered (may be unused?)
+        FLAG(9122),                     -- Defeat the boss King of ghouls - ボス撃破 グールの王 (Loot, common funcs)
+        FLAG(510220, ALWAYS_FALSE),     -- Loot already given
+        FLAG(61122, ALWAYS_TRUE),       -- Defeat the boss King of ghouls - ボス撃破 グールの王
+        FLAG(1122),                     -- "Defeat the boss" (Resetting)
+        FLAG(71600, ALWAYS_FALSE),      -- Rykard, Lord of Blasphemy grace menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(3109, ALWAYS_FALSE),       -- Event Status_Rykard Eating (Tanith eating Rykard's face, Rykard's face visibility)
+        FLAG(3110, ALWAYS_FALSE),       -- Event Status_nowhere (Rykard face after Tanith has been attacked)
+        FLAG(3111, ALWAYS_FALSE),       -- Unknown name. Also Rykard's face, after Tanith's Knight is defeated.
+        FLAG(16009265, ALWAYS_FALSE),   -- Tanith's Knight invasion active
+        FLAG(16009264, ALWAYS_FALSE),   -- Enables Rykard's head after Tanith's Knight is dead.
+        FLAG(16009268, ALWAYS_FALSE)    -- Set when Tanith is attacked, makes Tanith nonverbal
+    }},
+    -- Forbidden Lands - do I consider this part of Mountaintops?
+    {category = "Boss", subcategory = "Forbidden Lands", name = "Black Blade Kindred | Defeated", flags = {
+        FLAG(1049520800),           -- isDefeated
+        FLAG(530505)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Forbidden Lands", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1048510800),           -- isDefeated
+        FLAG(1048517700),           -- Loot already given
+        FLAG(65870, ALWAYS_TRUE)    -- Possession of magic stone: Phantom double slash - 魔石所持：幻影二重斬り
+    }},
+    -- [[ Mountaintops of the Giants ]]
+    -- Mountaintops main
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Borealis the Freezing Fog | Defeated", flags = {
+        FLAG(1254560800),           -- isDefeated
+        FLAG(530510)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Commander Niall | Defeated", flags = {
+        FLAG(1051570800),           -- isDefeated
+        FLAG(1051570801),           -- isEncountered
+        FLAG(9184),                 -- Defeat the boss m60_00 Fort (snowfield) - ボス撃破 m60_00 砦（雪原） (Loot, common funcs)
+        FLAG(510840),               -- Loot already given
+        FLAG(61184, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 
+        FLAG(1184),                 -- "Defeat the boss" (Resetting)
+        FLAG(76524, ALWAYS_FALSE)   -- Castle Sol Rooftop grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Death Rite Bird | Defeated", flags = {
+        FLAG(1050570800),           -- isDefeated
+        FLAG(530530)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Erdtree Avatar | Defeated", flags = {
+        FLAG(1052560800),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65050, ALWAYS_TRUE),   -- Elixir Material: FP Recovery 20% B - エリクサー素材：FP回復20％B
+        FLAG(65070, ALWAYS_TRUE)    -- Elixir Material: One-time recovery - エリクサー素材：一度きりの回復
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Roundtable Knight Vyke | Defeated", flags = {
+        FLAG(1053560800),           -- isDefeated
+        FLAG(530515)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Spirit-Caller Snail | Defeated", flags = {
+        FLAG(31220800),             -- isDefeated
+        FLAG(9248),                 -- Defeat the boss m31_22 Cave 5-2 - ボス撃破 m31_22 洞窟５－２ (Loot, common funcs)
+        FLAG(520480),               -- Loot already given
+        FLAG(61248, ALWAYS_TRUE),   -- Defeat the boss m31_22 Cave 5-2 - ボス撃破 m31_22 洞窟５－２
+        FLAG(1248)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Mountaintops of the Giants", name = "Ulcerated Tree Spirit | Defeated", flags = {
+        FLAG(30180800),             -- isDefeated
+        FLAG(30180801),             -- isEncountered (Technically "used" but not really)
+        FLAG(9218),                 -- Defeat the boss m30_18 Catacombs 5-2 - ボス撃破 m30_18 地下墓地５－２ (Loot, common funcs)
+        --FLAG(520180),             -- Loot already given, Disabled: Key item deduplication
+        FLAG(61218, ALWAYS_TRUE),   -- Defeat the boss m30_18 Catacombs 5-2 - ボス撃破 m30_18 地下墓地５－２
+        FLAG(1218)                  -- "Defeat the boss" (Resetting)
+    }},
+    -- Flame Peak
+    {category = "Boss", subcategory = "Flame Peak", name = "Ancient Hero of Zamor | Defeated", flags = {
+        FLAG(30170800),             -- isDefeated
+        FLAG(9217),                 -- Defeat the boss m30_17 Catacombs 5-1 - ボス撃破 m30_17 地下墓地５－１ (Loot, common funcs)
+        FLAG(520170),               -- Loot already given
+        FLAG(61217, ALWAYS_TRUE),   -- Defeat the boss m30_17 Catacombs 5-1 - ボス撃破 m30_17 地下墓地５－１
+        FLAG(1217)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Flame Peak", name = "Fire Giant | Defeated", flags = {
+        FLAG(1252520800),           -- isDefeated
+        FLAG(1252520801),           -- isEncountered
+        FLAG(9131),                 -- Defeat the boss giant - ボス撃破 巨人 (Loot, common funcs)
+        FLAG(510310, ALWAYS_FALSE), -- Loot already given. False so you get a remembrance.
+        FLAG(61131, ALWAYS_TRUE),   -- Defeat the boss giant - ボス撃破 巨人
+        FLAG(1131),                 -- "Defeat the boss" (Resetting)
+        FLAG(76509, ALWAYS_FALSE),  -- Fire Giant grace menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(76510, ALWAYS_FALSE)   -- Forge of the Giants grace menu icon. Shouldn't be back there with the boss alive and there's nothing to do.
+    }},
+    {category = "Boss", subcategory = "Crumbling Farum Azula", name = "Dragonlord Placidusax | Defeated", flags = {
+        FLAG(13000830),             -- isDefeated
+        FLAG(9115),                 -- Defeat the boss Old dragon - ボス撃破 古龍 (Loot, common funcs)
+        FLAG(510150, ALWAYS_FALSE), -- Loot already given, False so remembrance is given.
+        FLAG(61115, ALWAYS_TRUE),   -- Defeat the boss Old dragon - ボス撃破 古龍
+        FLAG(1115),                 -- "Defeat the boss" (Resetting)
+        FLAG(71301)                 -- Dragonlord Placidusax grace menu icon. Hidden so you can't warp into a living boss' arena. NOT ALWAYS_FALSE per how vanilla Placidusax works.
+    }},
+    {category = "Boss", subcategory = "Crumbling Farum Azula", name = "Godskin Duo | Defeated", flags = {
+        FLAG(13000850),             -- isDefeated
+        FLAG(13000851),             -- isEncountered
+        FLAG(9114),                 -- Defeat the boss God skin tag team - ボス撃破 神肌タッグチーム (Loot, common funcs)
+        FLAG(510140, ALWAYS_FALSE), -- Loot already given. False since it is a key item (might comment out so it gets runonce)
+        FLAG(61114, ALWAYS_TRUE),   -- Defeat the boss God skin tag team - ボス撃破 神肌タッグチーム
+        FLAG(1114),                 -- "Defeat the boss" (Resetting)
+        FLAG(65847, ALWAYS_TRUE),   -- Magic stone possession: Fire tornado - 魔石所持：ファイアトルネード
+        FLAG(71302, ALWAYS_FALSE)   -- Dragon Temple Altar grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Crumbling Farum Azula", name = "Maliketh, the Black Blade | Defeated", flags = {
+        FLAG(13000800),             -- isDefeated
+        FLAG(13000801),             -- isEncountered
+        FLAG(9116),                 -- Defeat the boss Mariques - ボス撃破 マリケス (Loot, common funcs) - also triggers cutscene and transition to Ashen capital.
+        -- Cutscene doesn't load properly if you aren't in Crumbling Farum Azula. Oh well!
+        FLAG(510160, ALWAYS_FALSE), -- Loot already given, false so remembrance is given.
+        FLAG(61116, ALWAYS_TRUE),   -- Defeat the boss Mariques - ボス撃破 マリケス
+        FLAG(1116),                 -- "Defeat the boss" (Resetting)
+        FLAG(71300),                -- Maliketh, the Black Blade grace menu icon. Hidden so you can't warp into a living boss' arena. NOT ALWAYS_FALSE per how vanilla Maliketh works.
+        FLAG(13009205)              -- First-encounter dialogue. Conveniently the same regardless of questline status.
+    }},
+    {category = "Boss", subcategory = "Leyndell, Capital of Ash", name = "Elden Beast | Defeated", flags = {
+        FLAG(19000800),             -- isDefeated
+        FLAG(19000801),             -- Unused
+        FLAG(19000804),             -- REQUIRED WARP FLAG
+        FLAG(19001100),             -- Fractured Marika statue
+        FLAG(9123),                 -- Defeat the boss Last boss - ボス撃破 ラスボス (Loot, common funcs) (very descriptive)
+        FLAG(510230, ALWAYS_FALSE), -- Loot already given, false so remembrance is given.
+        FLAG(61123, ALWAYS_TRUE),   -- Defeat the boss Last boss - ボス撃破 ラスボス
+        FLAG(1123),                 -- "Defeat the boss" (Resetting)
+        FLAG(71900),                -- Fractured Marika grace menu icon. Hidden so you can't warp yadda, but you can't leave without touching this one.
+        FLAG(9400, ALWAYS_FALSE),   -- Ending A-1 Play - エンディングA-1再生する
+        FLAG(9401, ALWAYS_FALSE),   -- Ending A-2 Play - エンディングA-2再生する
+        FLAG(9402, ALWAYS_FALSE),   -- Ending A-3 Play - エンディングA-3再生する
+        FLAG(9403, ALWAYS_FALSE),   -- Ending A-4 Play - エンディングA-4再生する
+        FLAG(9404, ALWAYS_FALSE),   -- Ending B-1 Play - エンディングB-1再生する
+        FLAG(9405, ALWAYS_FALSE),   -- Ending B-2 Play - エンディングB-2再生する
+        FLAG(9406, ALWAYS_FALSE),   -- Ending C-1 Play - エンディングC-1再生する
+        FLAG(9407, ALWAYS_FALSE),   -- Ending C-2 Play - エンディングC-2再生する
+        FLAG(120, ALWAYS_FALSE)     -- I saw the ending - エンディングを見た
+        -- NB: Resetting the ending is necessary to fully remove obstacles from the arena.
+    }},
+    {category = "Boss", subcategory = "Leyndell, Capital of Ash", name = "Hoarah Loux, Warrior | Defeated", flags = {
+        FLAG(11050800),             -- isDefeated
+        FLAG(11050801),             -- isEncountered
+        FLAG(9107),                 -- Defeat the boss God Frey - ボス撃破 ゴッドフレイ (Loot, common funcs)
+        FLAG(510070, ALWAYS_FALSE), -- Loot already given, false so remembrance is given.
+        FLAG(61107, ALWAYS_TRUE),   -- Defeat the boss God Frey - ボス撃破 ゴッドフレイ
+        FLAG(1107),                 -- "Defeat the boss" (Resetting)
+        FLAG(71120, ALWAYS_FALSE)   -- Elden Throne (Capital of Ash) grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Leyndell, Capital of Ash", name = "Sir Gideon Ofnir, the All-Knowing | Defeated", flags = {
+        FLAG(11050850),             -- isDefeated
+        FLAG(11050851),             -- isEncountered, yap sesh
+        FLAG(9106),                 -- Defeat the boss Hyakuchi - ボス撃破 百智 (Loot, common funcs)
+        FLAG(510060),               -- Loot already given
+        FLAG(61106, ALWAYS_TRUE),   -- Defeat the boss Sir Hyakuchi - ボス撃破 百智卿
+        FLAG(1106),                 -- "Defeat the boss" (Resetting)
+        FLAG(71121, ALWAYS_FALSE)   -- Erdtree Sanctuary (Capital of Ash) grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Astel, Stars of Darkness | Defeated", flags = {
+        FLAG(32110800),             -- isDefeated
+        FLAG(32110801),             -- isEncountered
+        FLAG(9268),                 -- Defeat the boss m32_11 Mine 5-1 - ボス撃破 m32_11 坑道５－１ (Loot, common funcs)
+        FLAG(520680),               -- Loot already given
+        FLAG(61268, ALWAYS_TRUE),   -- Defeat the boss m32_11 Mine 5-1 - ボス撃破 m32_11 坑道５－１
+        FLAG(1268),                 -- "Defeat the boss" (Resetting)
+        FLAG(32110590)              -- Door
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Death Rite Bird | Defeated", flags = {
+        FLAG(1048570800),           -- isDefeated, Loot
+        FLAG(1048577700)            -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Great Wyrm Theodorix | Defeated", flags = {
+        FLAG(1050560800),           -- isDefeated, Loot
+        FLAG(530550)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Misbegotten Crusader | Defeated", flags = {
+        FLAG(31120800),             -- isDefeated
+        FLAG(9247),                 -- Defeat the boss m31_12 Cave 5-1 - ボス撃破 m31_12 洞窟５－１ (Loot, common funcs)
+        FLAG(520470),               -- Loot already given
+        FLAG(61247, ALWAYS_TRUE),   -- Defeat the boss m31_12 Cave 5-1 - ボス撃破 m31_12 洞窟５－１
+        FLAG(1247)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Night's Cavalry | Defeated", flags = {
+        FLAG(1248550800),           -- isDefeated
+        FLAG(1048557700),           -- Loot already given (Ancient Dragon Smithing Stone)
+        FLAG(1048557710)            -- Loot already given (Armor set)
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Putrid Avatar | Defeated", flags = {
+        FLAG(1050570850),           -- isDefeated, Loot
+        -- NB: Players will have to spawn the tears if killed via script, as these are forced on to prevent duplicates
+        FLAG(65130, ALWAYS_TRUE),   -- Elixir Material: Temporary continuous attack power UP - エリクサー素材：一時的連続攻撃力UP
+        FLAG(65170, ALWAYS_TRUE)    -- Elixir Material: Explosion B - エリクサー素材：爆発B
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Putrid Grave Warden Duelist | Defeated", flags = {
+        FLAG(30190800),             -- isDefeated
+        FLAG(9219),                 -- Defeat the boss m30_19 Catacombs 5-3 - ボス撃破 m30_19 地下墓地５－３ (Loot, common funcs)
+        FLAG(520190),               -- Loot already given
+        FLAG(61219, ALWAYS_TRUE),   -- Defeat the boss m30_19 Catacombs 5-3 - ボス撃破 m30_19 地下墓地５－３
+        FLAG(1219)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Consecrated Snowfield", name = "Stray Mimic Tear | Defeated", flags = {
+        FLAG(30200800),             -- isDefeated
+        FLAG(9220),                 -- Defeat the boss m30_20 Catacombs 5-4 - ボス撃破 m30_20 地下墓地５－４ (Loot, common funcs)
+        FLAG(520200),               -- Loot already given
+        FLAG(61220, ALWAYS_TRUE),   -- Defeat the boss m30_20 Catacombs 5-4 - ボス撃破 m30_20 地下墓地５－４
+        FLAG(1220)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Miquella's Haligtree", name = "Lorretta, Knight of the Haligtree | Defeated", flags = {
+        FLAG(15000850),             -- isDefeated
+        FLAG(15000851),             -- isEncountered
+        FLAG(9119),                 -- Defeat the boss Tree guard (magician) - ボス撃破 ツリーガード（魔術師） (Loot, common funcs)
+        FLAG(510190),               -- Loot already given
+        FLAG(61119, ALWAYS_TRUE),   -- Defeat the boss Tree guard (magician) - ボス撃破 ツリーガード（魔術師）
+        FLAG(1119),                 -- "Defeat the boss" (Resetting)
+        FLAG(71505, ALWAYS_FALSE)   -- Haligtree Promenade grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Miquella's Haligtree", name = "Malenia, Blade of Miquella | Defeated", flags = {
+        FLAG(15000800),             -- isDefeated
+        FLAG(15000801),             -- isEncountered
+        FLAG(9120),                 -- Defeat the boss Malenia - ボス撃破 マレニア (Loot, common funcs) - also controls the rot flower
+        FLAG(510200, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE so that you get a Great Rune and Remembrance.
+        FLAG(61120, ALWAYS_TRUE),   -- Defeat the boss Malenia - ボス撃破 マレニア
+        FLAG(1120),                 -- "Defeat the boss" (Resetting)
+        FLAG(71500, ALWAYS_FALSE)   -- Malenia, Goddess of Rot grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Ancestor Spirit | Defeated", flags = {
+        FLAG(12080800),                 -- isDefeated
+        FLAG(9132),                     -- Defeat the boss Sorei (weak) - ボス撃破 祖霊（弱） (Loot, common funcs)
+        FLAG(510320),                   -- Loot already given
+        FLAG(61132, ALWAYS_TRUE),       -- Defeat the boss Sorei (weak) - ボス撃破 祖霊（弱）
+        FLAG(1132),                     -- "Defeat the boss" (Resetting)
+        FLAG(12020600, ALWAYS_TRUE),    -- Flame lit #1
+        FLAG(12020601, ALWAYS_TRUE),    -- Flame lit #2
+        FLAG(12020602, ALWAYS_TRUE),    -- Flame lit #3
+        FLAG(12020603, ALWAYS_TRUE),    -- Flame lit #4
+        FLAG(12020604, ALWAYS_TRUE),    -- Flame lit #5
+        FLAG(12020605, ALWAYS_TRUE),    -- Flame lit #6
+        FLAG(12020606, ALWAYS_TRUE),    -- Flame lit #7
+        FLAG(12020607, ALWAYS_TRUE),    -- Flame lit #8
+        FLAG(12020609, ALWAYS_TRUE),    -- Power gathers somewhere in horned remains
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Astel, Naturalborn of the Void | Defeated", flags = {
+        FLAG(12040800),             -- isDefeated
+        FLAG(9108),                 -- Defeat the boss Astel - ボス撃破 アステール (Loot, common funcs)
+        FLAG(510080, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE due to the drop being a Remembrance.
+        FLAG(61108, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 祖霊
+        FLAG(1108),                 -- "Defeat the boss" (Resetting)
+        FLAG(71240, ALWAYS_FALSE)   -- Astel, Naturalborn of the Void grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Crucible Knight Siluria | Defeated", flags = {
+        FLAG(12030390),             -- isDefeated, Loot
+        FLAG(12037950)              -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Dragonkin Soldier (Lake of Rot) | Defeated", flags = {
+        FLAG(12010850),             -- isDefeated, Loot
+        FLAG(530600)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Dragonkin Soldier (Siofra River) | Defeated", flags = {
+        FLAG(12020830),             -- isDefeated, Loot
+        FLAG(530620)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Dragonkin Soldier of Nokstella | Defeated", flags = {
+        FLAG(12010800),             -- isDefeated
+        FLAG(12010801),             -- isEncountered
+        FLAG(9109),                 -- Defeat the boss - ボス撃破 荒廃するもの (Loot, common funcs)
+        FLAG(510090),               -- Loot already given
+        FLAG(61109, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 荒廃するもの
+        FLAG(1109),                 -- "Defeat the boss" (Resetting)
+        FLAG(71210, ALWAYS_FALSE)   -- Dragonkin Soldier of Nokstella grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Fia's Champions | Defeated", flags = {
+        FLAG(12030800),             -- isDefeated
+        FLAG(12030801),             -- isEncountered
+        FLAG(9135),                 -- Defeat the boss - ボス撃破 同衾達 (Loot, common funcs)
+        FLAG(510350),               -- Loot already given
+        FLAG(61135, ALWAYS_TRUE),   -- Defeat the boss - ボス撃破 同衾達
+        FLAG(1135),                 -- "Defeat the boss" (Resetting)
+        FLAG(71230, ALWAYS_FALSE),  -- Prince of Death's Throne grace menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(4128, ALWAYS_FALSE),   -- Fia Near Godwin's body
+        FLAG(4129, ALWAYS_FALSE),   -- Fia after you give her the Cursemark
+        FLAG(4130, ALWAYS_FALSE),   -- Fia after she becomes a warp for Fortissax
+        FLAG(4131, ALWAYS_FALSE),   -- Fia after Fortissax is dead
+        FLAG(4132, ALWAYS_FALSE),   -- Fia after Fia is dead
+        FLAG(4066, ALWAYS_FALSE),   -- D's Brother killing Fia
+        -- Game re-enables the appropriate flags after the champions die, very cool of it
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Lichdragon Fortissax | Defeated", flags = {
+        FLAG(12030850),             -- isDefeated
+        FLAG(12030852),             -- I don't know what precisely this does, honestly.
+        FLAG(9111),                 -- Defeat the boss Descendants of the guardian (death) - ボス撃破 守護者の末裔（死） (Loot, common funcs)
+        FLAG(510110, ALWAYS_FALSE), -- Loot already given, False for the remembrance
+        FLAG(61111, ALWAYS_TRUE),   -- Defeat the boss Descendants of the guardian (death) - ボス撃破 守護者の末裔（死）
+        FLAG(1111),                 -- "Defeat the boss" (Resetting)
+        FLAG(4130, INVERSE),        -- Fia as a warp for Fortissax. Required.
+        FLAG(4131),                 -- Fia after Fortissax is dead.
+        FLAG(4132, ALWAYS_FALSE),   -- Fia after Fia is dead
+        FLAG(4066, ALWAYS_FALSE),   -- D's Brother killing Fia.
+        -- Fia can't be interacted with if she's a corpse
+        FLAG(4120, ALWAYS_TRUE),    -- Fia, isAlive
+        FLAG(4123, ALWAYS_FALSE)    -- Fia, isDead
+        -- 12032859 warps into the arena instantly
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Mimic Tear | Defeated", flags = {
+        FLAG(12020850),             -- isDefeated
+        FLAG(12020851),             -- isEncountered
+        FLAG(9134),                 -- Defeat the boss Makeover slime - ボス撃破 変身スライム (Loot, common funcs)
+        FLAG(510340),               -- Loot already given
+        FLAG(91134, ALWAYS_TRUE),   -- ! GAME TYPO DETECTED ! - Should be 61134. No idea what this flag is supposed to do, most of the non-resetting boss flags do nothing anyway. It is actually a flag, at least?
+        FLAG(1134),                 -- "Defeat the boss" (Resetting)
+        FLAG(71221, ALWAYS_FALSE)   -- Mimic Tear grace menu icon. Hidden so you can't warp into a living boss' arena.
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Mohg, Lord of Blood | Defeated", flags = {
+        FLAG(12050800),                 -- isDefeated
+        FLAG(12050801),                 -- isEncountered
+        FLAG(9112),                     -- Defeat the boss Greater Demon - ボス撃破 グレーターデーモン (Loot, common funcs)
+        FLAG(510120, ALWAYS_FALSE),     -- Loot already given, ALWAYS_FALSE for remembrance purposes
+        FLAG(61112, ALWAYS_TRUE),       -- Defeat the boss Greater Demon - ボス撃破 グレーターデーモン
+        FLAG(1112),                     -- "Defeat the boss" (Resetting)
+        FLAG(71250, ALWAYS_FALSE),      -- Cocoon of the Empyrean grace menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(12059261, ALWAYS_FALSE)    -- Needle Knight Leda at Cocoon of the Empyrean
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Regal Ancestor Spirit | Defeated", flags = {
+        FLAG(12090800),                 -- isDefeated
+        FLAG(9133),                     -- Defeat the boss Sorei (strong) - ボス撃破 祖霊（強） (Loot, common funcs)
+        FLAG(510330, ALWAYS_FALSE),     -- Loot already given, as usual remembrances are ALWAYS_FALSE so you get them still
+        FLAG(91133, ALWAYS_TRUE),       -- Vanilla typo! Should be 61113, but this is a valid flag.
+        FLAG(1133),                     -- "Defeat the boss" (Resetting)
+        FLAG(12020620, ALWAYS_TRUE),    -- Flame lit #1
+        FLAG(12020621, ALWAYS_TRUE),    -- Flame lit #2
+        FLAG(12020622, ALWAYS_TRUE),    -- Flame lit #3
+        FLAG(12020623, ALWAYS_TRUE),    -- Flame lit #4
+        FLAG(12020624, ALWAYS_TRUE),    -- Flame lit #5
+        FLAG(12020625, ALWAYS_TRUE),    -- Flame lit #6
+        FLAG(12020629, ALWAYS_TRUE),    -- Power gathers somewhere in horned remains
+    }},
+    {category = "Boss", subcategory = "Underground", name = "Valiant Gargoyles | Defeated", flags = {
+        FLAG(12020800),             -- isDefeated
+        FLAG(12020801),             -- isEncountered
+        FLAG(9110),                 -- Defeat the boss Gargoyle tag of the royal capital - ボス撃破 王都のガーゴイルタッグ (Loot, common funcs)
+        FLAG(510100),               -- Loot already given
+        FLAG(61110, ALWAYS_TRUE),   -- Defeat the boss Gargoyle tag of the royal capital - ボス撃破 王都のガーゴイルタッグ
+        FLAG(1110),                 -- "Defeat the boss" (Resetting)
+        FLAG(71220, ALWAYS_FALSE),  -- Great Waterfall Basin race menu icon. Hidden so you can't warp into a living boss' arena.
+        FLAG(65840, ALWAYS_TRUE)    -- Possession of magic stone: Vacuum wave slash - 魔石所持：真空波斬り
+        -- For some reason the game secretly gives this to you if you kill the Gargoyles, but only in the duplication menu.
+        -- Picking up the item in Deeproot on the other hand does NOT let you duplicate it.
+        -- Fromsoft code is so normal.
+    }},
+    --[[ 
+    Patches is disabled due to him being MASSIVELY involved.
+    I don't know if I'll fix it.
+    Here's some of the flags. This is literally only part of his first encounter.
+    I don't think he can really be respawned non-destructively.
+    {category = "Boss", subcategory = "TEST", name = "Patches | Defeated", flags = {
+        FLAG(31000800),             -- isDefeated
+        FLAG(31000811),             -- Makes music play in his arena
+        FLAG(31008521),             -- Chest opened
+        FLAG(31007010),             -- Taken items from chest
+        FLAG(31009210),             -- Patches dialogue
+        FLAG(31008820),             -- Patches aggression
+        FLAG(9232),                 -- Defeat the boss m31_02 Cave 1-3 - ボス撃破 m31_02 洞窟１－３ (Loot, common funcs)
+        FLAG(520320, ALWAYS_FALSE), -- Loot already given, false for gesture
+        FLAG(61232, ALWAYS_TRUE),   -- Defeat the boss m31_02 Cave 1-3 - ボス撃破 m31_02 洞窟１－３
+        FLAG(1232),                  -- "Defeat the boss" (Resetting)
+        FLAG(3680, ALWAYS_TRUE),
+        FLAG(3681, ALWAYS_FALSE),    -- Patches hostile
+        FLAG(3700, ALWAYS_TRUE),
+        FLAG(3703, ALWAYS_FALSE),
+    }},]]
+}
+
+local stateGroupsDlc = {
+    {category = "Map", name = "Show Shadow Realm map | Unlocked", flags = {
+        FLAG(82002)
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Ancient Dragon-Man | Defeated", flags = {
+        FLAG(43010800),                 -- isDefeated
+        FLAG(9281),                     -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520810),                   -- Loot already given
+        FLAG(61281, ALWAYS_TRUE),       -- "Defeat the boss" (Non-resetting)
+        FLAG(1281),                     -- "Defeat the boss" (Resetting)
+        FLAG(43018540, ALWAYS_FALSE)    -- Shut the door
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Chief Bloodfiend | Defeated", flags = {
+        FLAG(43000800),             -- isDefeated
+        FLAG(9280),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520800),               -- Loot already given
+        FLAG(61280, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1280)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Death Knight | Defeated", flags = {
+        FLAG(40000800),             -- isDefeated
+        FLAG(9270),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520700),               -- Loot already given
+        FLAG(61270, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1270)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Demi-Human Swordmaster Onze | Defeated", flags = {
+        FLAG(41000800),             -- isDefeated
+        FLAG(9275),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520750),               -- Loot already given
+        FLAG(61275, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1275)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Divine Beast Dancing Lion | Defeated", flags = {
+        FLAG(20000800),                 -- isDefeated
+        FLAG(20000801),                 -- isEncountered
+        FLAG(20000544),                 -- Door flag. Starts cutscene.
+        FLAG(9140),                     -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510400, ALWAYS_FALSE),     -- Loot already given, ALWAYS_FALSE for the remembrance
+        FLAG(20007810, ALWAYS_FALSE),   -- Picking up the Divine Beast Head
+        FLAG(61140, ALWAYS_TRUE),       -- "Defeat the boss" (Non-resetting)
+        FLAG(1140),                     -- "Defeat the boss" (Resetting)
+        FLAG(72000, ALWAYS_FALSE)       -- Theatre of the Divine Beast grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Ghostflame Dragon | Defeated", flags = {
+        FLAG(2045440800),           -- isDefeated
+        FLAG(2045440820),           -- isEncountered
+        FLAG(530860),               -- Loot already given (Dragon Heart)
+        FLAG(530861)                -- Loot already given (Somber Ancient Dragon Smithing Stone)
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Knight of the Solitary Gaol | Defeated", flags = {
+        FLAG(2046410800),           -- isDefeated
+        FLAG(530820)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Red Bear | Defeated", flags = {
+        FLAG(2046450800),           -- isDefeated
+        FLAG(530900)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Gravesite Plain", name = "Rellana, Twin Moon Knight | Defeated", flags = {
+        FLAG(2048440800),           -- isDefeated
+        FLAG(9190),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510900, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE so you get a remembrance
+        FLAG(61190, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1190),                 -- "Defeat the boss" (Resetting)
+        FLAG(76823, ALWAYS_FALSE)   -- Ensis Moongazing Grounds grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Black Knight Edreed | Defeated", flags = {
+        FLAG(2049430850),           -- isDefeated
+        FLAG(530965),               -- Loot already given
+        FLAG(65911, ALWAYS_TRUE),   -- Ash of War: Aspects of the Crucible: Wings
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Black Knight Garrew | Defeated", flags = {
+        FLAG(2047450800),           -- isDefeated
+        FLAG(530955)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Count Ymir, Mother of Fingers | Defeated", flags = {
+        FLAG(2051450800),           -- isDefeated
+        FLAG(400664)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Curseblade Labirith | Defeated", flags = {
+        FLAG(41010800),             -- isDefeated
+        FLAG(9276),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520760),               -- Loot already given
+        FLAG(61276, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1276)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Metyr, Mother of Fingers | Defeated", flags = {
+        FLAG(25000800),             -- isDefeated
+        FLAG(25000801),             -- isEncountered, unknown if it has any purpose
+        FLAG(9155),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510550, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE for the remembrance
+        FLAG(61155, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1155),                 -- "Defeat the boss" (Resetting)
+        FLAG(72500)                 -- Finger Birthing Grounds grace menu icon. Hidden so you can't warp in, but you can't leave before lighting it.
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Dryleaf Dane | Defeated", flags = {
+        FLAG(2049440800),           -- isDefeated
+        FLAG(2049449211),           -- "Grow not complacent" message, Dane visibility
+        FLAG(400730)                -- Loot picked up
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Ghostflame Dragon | Defeated", flags = {
+        FLAG(2049430800),           -- isDefeated
+        FLAG(530945)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Rakshasa | Defeated", flags = {
+        FLAG(2051440800),           -- isDefeated
+        FLAG(530830)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scadu Altus", name = "Ralva the Great Red Bear | Defeated", flags = {
+        FLAG(2049450800),           -- isDefeated
+        FLAG(530930)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Shadow Keep", name = "Golden Hippopotamus | Defeated", flags = {
+        FLAG(21000850),             -- isDefeated
+        FLAG(21000851),             -- isEncountered
+        FLAG(9144),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510440),               -- Loot already given
+        FLAG(61144, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1144),                 -- "Defeat the boss" (Resetting)
+        FLAG(72101, ALWAYS_FALSE)   -- Main Gate Plaza grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Shadow Keep", name = "Messmer the Impaler | Defeated", flags = {
+        FLAG(21010800),             -- isDefeated
+        FLAG(21010801),             -- isEncountered
+        FLAG(9146),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510460, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE for the remembrance and key item
+        FLAG(61146, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1146),                 -- "Defeat the boss" (Resetting)
+        FLAG(21018542),             -- Door flag
+        FLAG(72110, ALWAYS_FALSE),  -- Messmer's Dark Chamber grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(4368, ALWAYS_FALSE),   -- Hornsent after Messmer has died.
+        FLAG(2048459225)            -- Post-death events for Hornsent/Messmer
+    }},
+    {category = "Boss", subcategory = "Shadow Keep", name = "Scadutree Avatar | Defeated", flags = {
+        FLAG(2050480800),           -- isDefeated
+        FLAG(2050480801),           -- isEncountered
+        FLAG(9162),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510620, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE for the remembrance
+        FLAG(61162, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1162),                 -- "Defeat the boss" (Resetting)
+        FLAG(76960, ALWAYS_FALSE)   -- Scadutree Base grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Scaduview", name = "Commander Gaius | Defeated", flags = {
+        FLAG(2049480800),           -- isDefeated
+        FLAG(2049480801),           -- isEncountered
+        FLAG(9164),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510640, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE for the remembrance
+        FLAG(61164, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1164),                 -- "Defeat the boss" (Resetting)
+        FLAG(76930, ALWAYS_FALSE)   -- Scaduview grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Scaduview", name = "Fallingstar Beast | Defeated", flags = {
+        FLAG(2052480800),           -- isDefeated, Loot
+        FLAG(530960)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scaduview", name = "Tree Sentinel (Ambush) | Defeated", flags = {
+        FLAG(2050470800),           -- isDefeated
+        FLAG(530935)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Scaduview", name = "Tree Sentinel (Exposed) | Defeated", flags = {
+        FLAG(2050480860),           -- isDefeated
+        FLAG(530950)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Jagged Peak", name = "Ancient Dragon Senessax | Defeated", flags = {
+        FLAG(2054390850),           -- isDefeated
+        FLAG(530805)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Jagged Peak", name = "Bayle, the Dread | Defeated", flags = {
+        FLAG(2054390800),           -- isDefeated
+        FLAG(2054390801),           -- isEncountered
+        FLAG(9163),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510630, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE for heart
+        FLAG(61163, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1163),                 -- "Defeat the boss" (Resetting)
+        FLAG(76853, ALWAYS_FALSE)   -- Rest of the Dread Dragon grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Jagged Peak", name = "Jagged Peak Drake | Defeated", flags = {
+        FLAG(2049410800),           -- isDefeated
+        FLAG(530850)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Jagged Peak", name = "Jagged Peak Drake Duo | Defeated", flags = {
+        FLAG(2052400800),               -- isDefeated
+        FLAG(530800),                   -- Loot already given
+        FLAG(2048429205),               -- Post-encounter script
+        FLAG(4267, ALWAYS_FALSE),       -- Igon post-encounter
+        FLAG(4268, ALWAYS_FALSE),       -- Igon as a corpse, after he has removed the finger. Hidden mostly for cleanliness - I didn't revive him, so he'll still be a corpse.
+        FLAG(2052409206, ALWAYS_FALSE), -- Igon post-encounter speech
+        FLAG(2052409207, ALWAYS_FALSE)  -- Igon post-encounter talk (item does not duplicate) - item checks flag 400710
+    }},
+    {category = "Boss", subcategory = "Charo's Hidden Grave", name = "Death Rite Bird | Defeated", flags = {
+        FLAG(2047390800),           -- isDefeated
+        FLAG(530855),               -- Loot already given
+        FLAG(65931, ALWAYS_TRUE)    -- Ash of War: Ghostflame Call (Duplication Menu)
+    }},
+    {category = "Boss", subcategory = "Charo's Hidden Grave", name = "Lamenter | Defeated", flags = {
+        FLAG(41020800),             -- isDefeated
+        FLAG(41020801),             -- isEncountered (appears to be unused)
+        FLAG(9277),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520770),               -- Loot already given
+        FLAG(61277, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1277)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Cerulean Coast", name = "Dancer of Ranah | Defeated", flags = {
+        FLAG(2046380800),           -- isDefeated
+        FLAG(530810)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Cerulean Coast", name = "Demi-Human Queen Marigga | Defeated", flags = {
+        FLAG(2046400800),           -- isDefeated
+        FLAG(530845)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Cerulean Coast", name = "Ghostflame Dragon | Defeated", flags = {
+        FLAG(2048380850),           -- isDefeated
+        FLAG(2048380870),           -- isEncountered
+        FLAG(530840)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Cerulean Coast", name = "Putrescent Knight | Defeated", flags = {
+        FLAG(22000800),                 -- isDefeated
+        FLAG(22000802),                 -- isEncountered
+        FLAG(9148),                     -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510480, ALWAYS_FALSE),     -- Loot already given, ALWAYS_FALSE for remembrance
+        FLAG(61148, ALWAYS_TRUE),       -- "Defeat the boss" (Non-resetting)
+        FLAG(1148),                     -- "Defeat the boss" (Resetting)
+        FLAG(72200, ALWAYS_FALSE),      -- Garden of Deep Purple grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(22009208, function() return ef.getFlag(22009225):getValue() end),   -- Thiollier invasion active
+        FLAG(22009222, function() return ef.getFlag(22009225):getValue() end)    -- "Try to pass on St. Trina's words again" - has to be disabled for Thiollier to go away
+        -- NB: This was the first place I tested being able to pass a function as a parameter.
+        -- This resets the Thiollier dialog back to the "Try to pass on..." stage if Thiollier's invasion is active, when Putrescent Knight is respawned.
+    }},
+    {category = "Boss", subcategory = "Abyssal Woods", name = "Jori, Elder Inquisitor | Defeated", flags = {
+        FLAG(2052430800),           -- isDefeated
+        FLAG(2052432801),           -- isEncountered
+        FLAG(9161),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510610),               -- Loot already given
+        FLAG(61161, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1161),                 -- "Defeat the boss" (Resetting)
+        FLAG(76862, ALWAYS_FALSE)   -- Forsaken Graveyard grace menu icon. Hidden so you can't warp into a living boss' arena
+    }},
+    {category = "Boss", subcategory = "Abyssal Woods", name = "Midra, Lord of Frenzied Flame | Defeated", flags = {
+        FLAG(28000800),             -- isDefeated
+        FLAG(28000801),             -- isEncountered
+        FLAG(9156),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510560, ALWAYS_FALSE), -- Loot already given, ALWAYS_FALSE so you get the remembrance
+        FLAG(61156, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(72800, ALWAYS_FALSE),  -- grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(1156),                 -- "Defeat the boss" (Resetting)
+        FLAG(28009211),             -- First scream, on the bridge
+        FLAG(28009212)              -- Second scream, outside the boss room
+    }},
+    {category = "Boss", subcategory = "Rauh Base", name = "Death Knight | Defeated", flags = {
+        FLAG(40010800),             -- isDefeated
+        FLAG(9271),                 -- "Defeat the boss" (Loot, common funcs)
+        FLAG(520710),               -- Loot already given
+        FLAG(61271, ALWAYS_TRUE),   -- "Defeat the boss" (Non-resetting)
+        FLAG(1271)                  -- "Defeat the boss" (Resetting)
+    }},
+    {category = "Boss", subcategory = "Rauh Base", name = "Rugalea the Great Red Bear | Defeated", flags = {
+        FLAG(2044470800),           -- isDefeated
+        FLAG(530905)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Ancient Ruins of Rauh", name = "Divine Beast Dancing Lion | Defeated", flags = {
+        FLAG(2046460800),           -- isDefeated
+        FLAG(530940)                -- Loot already given
+    }},
+    {category = "Boss", subcategory = "Ancient Ruins of Rauh", name = "Romina, Saint of the Bud | Defeated", flags = {
+        FLAG(2044450800),               -- isDefeated
+        FLAG(9160),                     -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510600, ALWAYS_FALSE),     -- Loot already given, ALWAYS_FALSE for the remembrance
+        FLAG(61160, ALWAYS_TRUE),       -- "Defeat the boss" (Non-resetting)
+        FLAG(1160),                     -- "Defeat the boss" (Resetting)
+        FLAG(76945, ALWAYS_FALSE),      -- Church of the Bud grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(20010196, function()       -- Warps player to Enir-Ilim while set
+            if not ef.getFlag(330):getValue() and 
+                   ef.getFlag(9146):getValue() and
+                   not getItemIdx(0x401EA3D5, 2) then -- Sealing tree already burnt, and Messmer is dead, but we don't have Kindling
+                ItemGive(0x401EA3D5, 1, 0, 0, -1) -- Give Messmer's Kindling to prevent a softlock
+            end
+            return false -- ALWAYS_FALSE with extra steps!
+        end
+        ),
+        FLAG(330, ALWAYS_FALSE),        -- Sealing Tree status flag
+    }},
+    {category = "Boss", subcategory = "Enir-Ilim", name = "Promised Consort Radahn | Defeated", flags = {
+        FLAG(20010800),                 -- isDefeated
+        FLAG(20010801),                 -- isEncountered
+        FLAG(9143),                     -- "Defeat the boss" (Loot, common funcs)
+        FLAG(510430, ALWAYS_FALSE),     -- Loot already given
+        FLAG(61143, ALWAYS_TRUE),       -- "Defeat the boss" (Non-resetting). Enables DLC+ if set when going to NG+.
+        FLAG(1143),                     -- "Defeat the boss" (Resetting)
+        FLAG(72010, ALWAYS_FALSE),      -- Gate of Divinity grace menu icon. Hidden so you can't warp into a living boss' arena
+        FLAG(128, ALWAYS_FALSE),        -- Touch Memory
+        FLAG(20017981, ALWAYS_FALSE)    -- Circlet of Light from the memory
+    }},
+
+}
+
+
+if isOwnDlc(1) then
+	for _, v in pairs(stateGroupsDlc) do
+        table.insert(stateGroups, v)
+    end
+end
+
+local result, stateGroupEnum = pcall(function()
+    local stateGroupEnum = {}
+    local categories = {}
+    for _, v in pairs(stateGroups) do
+        assert(type(v.category) == "string", "invalid flag syntax - category field")
+        assert(v.subcategory == nil or type(v.subcategory) == "string", "invalid flag syntax - subcategory field")
+        assert(type(v.name) == "string", "invalid flag syntax - name field")
+        for _, f in pairs(v.flags) do
+            assert(type(f.id) == "number", "invalid flag id")
+            assert(type(f.evaluate) == "function", "invalid flag evalutation function")
+        end
+        if categories[v.category] == nil then
+            table.insert(stateGroupEnum, {})
+            categories[v.category] = #stateGroupEnum
+        end
+        table.insert(stateGroupEnum[categories[v.category]], {
+            value = v,
+            category = string.format("[%s] All", v.category),
+            isMainCategory = true
+        })
+        if v.subcategory ~= nil then
+            local category = string.format("[%s] %s", v.category, v.subcategory)
+            if categories[category] == nil then
+                table.insert(stateGroupEnum, {})
+                categories[category] = #stateGroupEnum
+            end
+            table.insert(stateGroupEnum[categories[category]], {
+                value = v,
+                category = category
+            })
+        end
+    end
+    return stateGroupEnum
+end)
+
+assert(result, string.format("error while enumerating flag state groups: %s", stateGroupEnum))
+assert(#stateGroupEnum > 0)
+
+if syntaxcheck then return end
+clean()
+
+local function setMemrecValueSilent(memrec, value)
+    local tmp = memrec.OnValueChangedByUser
+    memrec.OnValueChangedByUser = nil
+    memrec.Value = value
+    memrec.OnValueChangedByUser = tmp
+end
+
+-- Note: only evaluates the first flag in the state group
+local function bindOnGetDisplayValue(bound)
+    return function(memrec, value)
+        pcall(function()
+            local flag = ef.getFlag(bound.id)
+            local newValue = nil
+            if flag:isValid() then
+                if flag:getValue() == bound.evaluate(true) then
+                    newValue = 1
+                else
+                    newValue = 0
+                end
+            end
+            setMemrecValueSilent(memrec, newValue)
+            return newValue == nil, ""
+        end)
+    end
+end
+
+local function bindOnValueChangedByUser(bound)
+    return function(memrec, oldValue, newValue)
+        pcall(function() if newValue == oldValue then
+                return
+            end
+            local stateGroups = {}
+            if newValue ~= "0" and newValue ~= "1" then
+                memrec.Value = oldValue
+                return
+            end
+            newValue = newValue == "1"
+            for _, v in ipairs(bound) do
+                local flag = ef.getFlag(v.id)
+                if not flag:isValid() then
+                    print(string.format("Flag %d is invalid! Do you have a typo, or does From?",v.id))
+                    return
+                end
+                table.insert(stateGroups, {
+                    flag = flag,
+                    state = v.evaluate(newValue),
+                })
+            end
+            for _, v in ipairs(stateGroups) do
+                v.flag:setValue(v.state)
+            end
+        end)
+    end
+end
+
+local function addStateMemrec(parent, address, state)
+    local newMemrec = getAddressList().createMemoryRecord()
+    newMemrec.Parent = parent
+    newMemrec.Type = vtByte
+    newMemrec.Description = state.name
+    newMemrec.DontSave = true
+    newMemrec.Address = address
+    newMemrec.DropDownLinked = true
+    newMemrec.DropDownLinkedMemrec = "TRUE_FALSE"
+    newMemrec.OnGetDisplayValue = bindOnGetDisplayValue(state.flags[1])
+    newMemrec.OnValueChangedByUser = bindOnValueChangedByUser(state.flags)
+end
+
+local function addSubcategoryHeader(parent, name)
+    local newMemrec = getAddressList().createMemoryRecord()
+    newMemrec.Parent = parent
+    newMemrec.IsGroupHeader = true
+    newMemrec.Description = name
+    newMemrec.DontSave = true
+    newMemrec.Options = "[moHideChildren]"
+    return newMemrec
+end
+
+local function onUpdateCategoryFilter(memrec, oldValue, newValue)
+    if newValue == oldValue then
+        return
+    end
+    clean()
+    newValue = tonumber(newValue)
+    if newValue == nil or newValue == 0 then
+        return
+    end
+    local result = pcall(function()
+        local state = stateGroupEnum[newValue]
+        local count = #state
+        FlagManagerMemory = getAddress(allocateMemory(count))
+        local subHeaders = {}
+        for i, v in ipairs(state) do
+            local parent = memrec
+            -- only create subcategory headers for all subcategories at once
+            if v.isMainCategory then
+                local sub = v.value.subcategory
+                if sub ~= nil then
+                    if subHeaders[sub] == nil then
+                        subHeaders[sub] = addSubcategoryHeader(parent, sub)
+                    end
+                    parent = subHeaders[sub]
+                end
+            end
+            addStateMemrec(parent, FlagManagerMemory + i - 1, v.value)
+        end
+    end)
+    if not result then
+        clean()
+    end
+end
+
+local function init()
+    if FlagManagerFilter ~= nil then
+        pcall(deAlloc, FlagManagerFilter)
+        FlagManagerFilter = nil
+    end
+    FlagManagerFilter = getAddress(allocateMemory(4))
+    writeInteger(FlagManagerFilter, 0)
+    local dropdown = {"0:None"}
+    for i, v in ipairs(stateGroupEnum) do
+        table.insert(dropdown, string.format("%d:%s", i, v[1].category))
+    end
+    local header = memrec.Child[0]
+    header.DropDownList.setText(table.concat(dropdown, "\n"))
+    header.OnValueChangedByUser = onUpdateCategoryFilter
+end
+
+init()
+
+[DISABLE]
+if syntaxcheck then return end
+clean()
