@@ -590,7 +590,7 @@ local stateGroups = {
         FLAG(3668, ALWAYS_FALSE),   -- Iron Fist Alexander in the boss arena
         FLAG(76422),                -- Starscourge Radahn site of grace. The game doesn't let you leave until you light this normally, so you can have it. But no warping in while he's alive!
         FLAG(310),                  -- Natural disaster: Green meteorite - 天変地異：緑隕石
-        FLAG(73016),                -- Grace for War-Dead Catacombs, to prevent a semi-softlock where you warp here and can't warp out until the boss is dead
+        FLAG(73016, ALWAYS_FALSE),  -- Grace for War-Dead Catacombs, to prevent a semi-softlock where you warp here and can't warp out until the boss is dead
         FLAG(910),                  -- Responsible for many things post-cutscene
         FLAG(9414),                 -- Enables wait between Radahn dying and the cutscene
         FLAG(9415),                 -- Disables 910 if true
