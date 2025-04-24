@@ -1705,6 +1705,7 @@ local function init()
         table.insert(dropdown, string.format("%d:%s", i, v[1].category))
     end
     local header = memrec.Child[0]
+    header.Address = FlagManagerFilter
     header.DropDownList.setText(table.concat(dropdown, "\n"))
     header.OnValueChangedByUser = onUpdateCategoryFilter
 end
