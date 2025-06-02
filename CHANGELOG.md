@@ -10,6 +10,7 @@
 ### Fixed
  - Graphics header under OptionData
  - "Print items" in EquipInventoryData
+ - Fixed credits for Free Camera fix
  - by [Umgak](https://github.com/Umgak):
    - Teleport to Map-relative Coordinates for Shadow of the Erdtree
 
@@ -108,7 +109,8 @@
  - some chrasm pointers
  - "Remove Seamless Co-op Items" script
  - EquipItem's unequip function
- - Free Camera
+ by [vswarte](https://github.com/vswarte)
+   - Free Camera
  - Session Info equipment offsets
 
 ## [v1.12.1] - 2024-07-05

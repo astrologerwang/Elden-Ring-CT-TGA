@@ -1,4 +1,4 @@
-// Author: pav
+// Author: pav, vswarte
 // Activate via A+L3 or by setting "Free camera mode"
 
 {$lua}
