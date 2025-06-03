@@ -984,8 +984,9 @@ local stateGroups = {
 	}},
     -- Whetblades
     {category = "Whetblades", name = "Whetstone Knife", flags = {
-        FLAG(65600)
-        --[[FLAG(65600, function(newValue)  --WIP, broken. Pick up the knife I guess. Was going to delete it if you set it to false, and give it back if set to true, but with how this evaluates atm I'm not sure it's possible.
+        FLAG(60130),        -- Whetblade item in the chest
+        FLAG(1042378601),   -- Open chest
+        FLAG(65600, function(newValue)  -- Standard reinforcement. This script removes the whetblade if you have it and set it to False, since the game actually uses that. For some reason.
             local Whetblade = 0x4000218E
             local idx = getItemIdx(Whetblade, 2)
             if (newValue == true and idx == false) then
@@ -997,7 +998,7 @@ local stateGroups = {
             end
             return newValue
         end
-        )]]
+        )
     }},
     {category = "Whetblades", name = "Iron Whetblade", flags = {
         FLAG(65610),    -- Heavy
