@@ -1171,12 +1171,17 @@ end
 
 --[[END TGA helpers]]--
 
-enableRecord(1000, 0, true) -- enable Symbol Lookup Fix
+-- enableRecord(1000, 0, true) -- enable Symbol Lookup Fix
 
 local asyncEnableTimer = createTimer(getMainForm())
-asyncEnableTimer.Interval = 100
+asyncEnableTimer.Interval = 1000
 asyncEnableTimer.OnTimer = function()
     local record = getAddressList().getMemoryRecordByID(1001)
+    if not record then
+        -- print("Warning: Memory record ID 1001 (CSCRIPT V2) not found")
+        asyncEnableTimer.destroy()
+        return
+    end
     if not record.Active then
         enableRecord(1001, 100) -- enable CSCRIPT V2
     else
@@ -1202,7 +1207,7 @@ helperUpdateTimer.OnTimer = function(timer)
             end
         end
     else
-        enableRecord(251) -- ensure an instance of ParamUtils is enabled
+        -- enableRecord(251) -- ensure an instance of ParamUtils is enabled
     end
 end
 
@@ -1211,12 +1216,12 @@ if table_ver ~= nil then
 end
 
 [DISABLE]
-disableRecord(251) -- disable ParamUtils
+-- disableRecord(251) -- disable ParamUtils
 disableRecord(300) -- disable Shared Functions
 --disableRecord(1003, 0, true) -- CParamUtils should NOT be disabled to avoid memory leaks.
 disableRecord(1002, 0, true) -- disable singleton finder
 disableRecord(1001, 0, true) -- disable CSCRIPT V2
-disableRecord(1000, 0, true) -- disable symbol lookup fix
+-- disableRecord(1000, 0, true) -- disable symbol lookup fix
 
 helperUpdateTimer.destroy()
 tgaUnregisterBases()

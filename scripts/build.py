@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import os, subprocess, sys
 from pack_table_files import pack_table_files
 
