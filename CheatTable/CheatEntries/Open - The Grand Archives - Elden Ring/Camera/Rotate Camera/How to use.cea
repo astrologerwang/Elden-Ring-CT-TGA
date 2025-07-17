@@ -2,9 +2,8 @@
 if syntaxcheck then return end
 [ENABLE]
 showText("Controls", [[
-A controller is required, keyboard is not supported.
 
-L3 + R3: rotate camera around the player character
+check the box to enable camera rotation
 
 ]])
 disableMemrec(memrec)

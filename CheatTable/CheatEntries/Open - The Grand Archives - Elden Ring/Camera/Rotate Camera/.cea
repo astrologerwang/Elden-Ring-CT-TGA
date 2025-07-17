@@ -1,294 +1,78 @@
-// Author: pav
-// Activate via L3+R3 or manually toggle - Camera rotates around the player character
-// 按下 L3+R3 激活或手动切换 - 摄像机围绕玩家角色旋转
+// Camera rotates around the player character when enabled
 
 {$lua}
 if syntaxcheck then return end
 
-local rotateActive = false
-local rotationSpeed = 0.02
-local rotationAngle = 0
+-- Camera rotation variables
 local rotationTimer = nil
-local inputTimer = nil
-local lastInputTime = 0
+local rotationSpeedAddr = nil
+local defaultRotationSpeed = 0.02
 
--- Add a global function to manually toggle rotation
-function toggleCameraRotation()
-    if not rotateActive then
-        startRotation()
-    else
-        stopRotation()
-    end
-    return rotateActive
-end
-
--- Safe function wrapper to prevent nil access errors
-local function safeCall(func, ...)
-    local success, result = pcall(func, ...)
-    if not success then
-        print("Error in safeCall: " .. tostring(result))
-        return nil
-    end
-    return result
-end
-
--- Safe memory read functions
-local function safeReadPointer(address)
-    return safeCall(readPointer, address)
-end
-
-local function safeReadFloat(address)
-    return safeCall(readFloat, address)
-end
-
-local function safeWriteFloat(address, value)
-    return safeCall(writeFloat, address, value)
-end
-
-local function safeReadBytes(address, size)
-    return safeCall(readBytes, address, size)
-end
-
-local function getCameraPosition()
-    local fieldArea = safeReadPointer("[FieldArea]")
-    if not fieldArea then return nil end
-    
-    local cameraBase = safeReadPointer(fieldArea + 0x20)
-    if not cameraBase then return nil end
-    
-    local x = safeReadFloat(cameraBase + 0x10)
-    local y = safeReadFloat(cameraBase + 0x14)
-    local z = safeReadFloat(cameraBase + 0x18)
-    
-    if not x or not y or not z then return nil end
-    
-    return {x = x, y = y, z = z}
-end
-
-local function getPlayerPosition()
-    local gameMan = safeReadPointer("[GameMan]")
-    if not gameMan then return nil end
-    
-    local playerBase = safeReadPointer(gameMan + 8)
-    if not playerBase then return nil end
-    
-    local x = safeReadFloat(playerBase + 0x68)
-    local y = safeReadFloat(playerBase + 0x6C)
-    local z = safeReadFloat(playerBase + 0x70)
-    
-    if not x or not y or not z then return nil end
-    
-    return {x = x, y = y, z = z}
-end
-
-local function setCameraPosition(x, y, z)
-    local fieldArea = safeReadPointer("[FieldArea]")
-    if not fieldArea then return false end
-    
-    local cameraBase = safeReadPointer(fieldArea + 0x20)
-    if not cameraBase then return false end
-    
-    safeWriteFloat(cameraBase + 0x10, x)
-    safeWriteFloat(cameraBase + 0x14, y)
-    safeWriteFloat(cameraBase + 0x18, z)
-    
-    return true
-end
-
+-- Rotate camera around player
 local function rotateCamera()
-    local playerPos = getPlayerPosition()
-    local cameraPos = getCameraPosition()
-    
-    if not playerPos or not cameraPos then return end
-    
-    -- Calculate distance from player
-    local dx = cameraPos.x - playerPos.x
-    local dz = cameraPos.z - playerPos.z
-    local distance = math.sqrt(dx * dx + dz * dz)
-    
-    -- Prevent camera from getting too close or too far
-    if distance < 1 then distance = 5 end
-    if distance > 50 then distance = 10 end
-    
-    -- Update rotation angle
-    rotationAngle = rotationAngle + rotationSpeed
-    if rotationAngle >= 2 * math.pi then
-        rotationAngle = rotationAngle - 2 * math.pi
-    end
-    
-    -- Calculate new camera position
-    local newX = playerPos.x + distance * math.cos(rotationAngle)
-    local newZ = playerPos.z + distance * math.sin(rotationAngle)
-    
-    -- Set new camera position (keep Y unchanged)
-    setCameraPosition(newX, cameraPos.y, newZ)
-end
-
-local function startRotation()
-    if rotateActive then return end
-    rotateActive = true
-    
-    -- Initialize rotation angle based on current camera position
-    local playerPos = getPlayerPosition()
-    local cameraPos = getCameraPosition()
-    
-    if playerPos and cameraPos then
-        local dx = cameraPos.x - playerPos.x
-        local dz = cameraPos.z - playerPos.z
-        rotationAngle = math.atan2(dz, dx)
-    else
-        rotationAngle = 0
-    end
-    
-    -- Start rotation timer
-    if rotationTimer then
-        rotationTimer.Enabled = false
-        rotationTimer.destroy()
-    end
-    
-    rotationTimer = createTimer()
-    rotationTimer.Interval = 16 -- ~60 FPS
-    rotationTimer.OnTimer = rotateCamera
-    rotationTimer.Enabled = true
-    
-    print("Camera rotation started")
-end
-
-local function stopRotation()
-    if not rotateActive then return end
-    rotateActive = false
-    
-    if rotationTimer then
-        rotationTimer.Enabled = false
-        rotationTimer.destroy()
-        rotationTimer = nil
-    end
-    
-    print("Camera rotation stopped")
-end
-
--- Input handling for L3+R3
-local function checkInput()
-    local currentTime = os.clock()
-    
-    -- Prevent rapid toggling
-    if currentTime - lastInputTime < 1 then return end
-    
-    -- Try to read input state safely with more debug info
-    local inputMan = safeReadPointer("[CSInputMan]")
-    if not inputMan then 
-        -- Silently return, no need to spam console
-        return 
-    end
-    
-    local inputBase = safeReadPointer(inputMan + 8)
-    if not inputBase then return end
-    
-    -- Read input bytes safely
-    local l3Bytes = safeReadBytes(inputBase + 0xBC, 1)
-    local r3Bytes = safeReadBytes(inputBase + 0xBD, 1)
-    
-    if not l3Bytes or not r3Bytes or #l3Bytes == 0 or #r3Bytes == 0 then 
-        return 
-    end
-    
-    local l3Pressed = l3Bytes[1] == 1
-    local r3Pressed = r3Bytes[1] == 1
-    
-    -- Debug: Print when any stick button is pressed
-    if l3Pressed or r3Pressed then
-        print("Input detected - L3: " .. (l3Pressed and "ON" or "OFF") .. ", R3: " .. (r3Pressed and "ON" or "OFF"))
-    end
-    
-    if l3Pressed and r3Pressed then
-        lastInputTime = currentTime
-        print("L3+R3 detected! Toggling camera rotation...")
-        if not rotateActive then
-            startRotation()
-        else
-            stopRotation()
+    local success = pcall(function()
+        -- Get rotation speed from the speed control entry if available
+        local rotationSpeed = defaultRotationSpeed
+        if rotationSpeedAddr then
+            local speedValue = readFloat(rotationSpeedAddr)
+            if speedValue and speedValue > 0 and speedValue < 1 then
+                rotationSpeed = speedValue
+            end
         end
-    end
+        
+        -- Get camera rotation value address
+        local fieldArea = getAddressSafe("FieldArea")
+        if not fieldArea then return end
+        
+        -- Modify camera rotation angle
+        local cameraAngleAddr = fieldArea + 0x4C
+        
+        -- Read current angle and increment it
+        local currentAngle = readFloat(cameraAngleAddr) or 0
+        local newAngle = currentAngle + rotationSpeed
+        
+        -- Normalize angle to 0-2π range
+        if newAngle > math.pi * 2 then
+            newAngle = newAngle - math.pi * 2
+        elseif newAngle < 0 then
+            newAngle = newAngle + math.pi * 2
+        end
+        
+        -- Write new angle
+        writeFloat(cameraAngleAddr, newAngle)
+    end)
 end
 
 [ENABLE]
-print("Initializing Rotate Camera...")
+-- Initialize rotation speed memory location
+rotationSpeedAddr = allocateMemory(4)
+writeFloat(rotationSpeedAddr, defaultRotationSpeed)
 
--- Test basic memory access
-local fieldAreaTest = safeReadPointer("[FieldArea]")
-local gameManTest = safeReadPointer("[GameMan]")
+-- Register the symbol so the XML can reference it
+registerSymbol("rotationSpeedAddr", rotationSpeedAddr)
 
-if fieldAreaTest then
-    print("FieldArea found at: " .. string.format("0x%X", fieldAreaTest))
-else
-    print("Warning: FieldArea not found - game may not be loaded")
-end
+-- Create camera rotation timer
+rotationTimer = createTimer(getMainForm())
+rotationTimer.Interval = 33 -- ~30 FPS for smooth rotation
+rotationTimer.OnTimer = rotateCamera
+rotationTimer.Enabled = true
 
-if gameManTest then
-    print("GameMan found at: " .. string.format("0x%X", gameManTest))
-else
-    print("Warning: GameMan not found - game may not be loaded")
-end
-
-{$asm}
-aobscanmodule(rotatecam_inject,$process,8b 93 c8 00 00 00 85 d2)
-alloc(rotatecam_newmem,$100,rotatecam_inject)
-
-rotatecam_newmem:
-mov edx,[rbx+000000C8]
-cmp edx,04  // Check for rotate camera mode (value 4)
-je rotatecam_active
-jmp rotatecam_original
-
-rotatecam_active:
-// Camera rotation is handled by Lua timer
-jmp rotatecam_original
-
-rotatecam_original:
-jmp rotatecam_return
-
-rotatecam_inject:
-jmp rotatecam_newmem
-nop
-rotatecam_return:
-
-{$asm}
-
--- Create and start input monitoring timer
-if inputTimer then
-    inputTimer.Enabled = false
-    inputTimer.destroy()
-end
-
-inputTimer = createTimer()
-inputTimer.Interval = 200  -- Check every 200ms to reduce CPU usage
-inputTimer.OnTimer = checkInput
-inputTimer.Enabled = true
-
-print("Rotate Camera loaded successfully!")
-print("Press L3+R3 to toggle or use: toggleCameraRotation()")
-print("Current rotation status: " .. (rotateActive and "ON" or "OFF"))
+print("Camera rotation enabled")
+print("Adjust rotation speed using the 'Rotation Speed' entry")
 
 [DISABLE]
--- Stop rotation and input monitoring
+-- Stop rotation timer
 if rotationTimer then
     rotationTimer.Enabled = false
     rotationTimer.destroy()
     rotationTimer = nil
 end
 
-if inputTimer then
-    inputTimer.Enabled = false
-    inputTimer.destroy()
-    inputTimer = nil
+-- Unregister symbol and cleanup memory
+if rotationSpeedAddr then
+    unregisterSymbol("rotationSpeedAddr")
+    deallocateMemory(rotationSpeedAddr)
+    rotationSpeedAddr = nil
 end
 
-rotateActive = false
-
-print("Rotate Camera unloaded")
-
-{$asm}
-dealloc(rotatecam_newmem)
-rotatecam_inject:
-db 8b 93 c8 00 00 00 //mov edx,[rbx+000000C8]
-{$asm}
+print("Camera rotation disabled")

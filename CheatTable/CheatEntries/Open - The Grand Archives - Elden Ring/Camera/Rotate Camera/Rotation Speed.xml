@@ -4,6 +4,6 @@
     <Options moRecursiveSetValue="1" />
     <ShowAsSigned>0</ShowAsSigned>
     <VariableType>Float</VariableType>
-    <Address>00000000</Address>
+    <Address>rotationSpeedAddr</Address>
     <LastState Value="0.02" RealAddress="00000000" />
 </CheatEntry>
