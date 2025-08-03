@@ -506,11 +506,11 @@ if tga.config.checkGameLaunched and not GetAddressSafe(process) then
 end
 
 if tga.config.checkGameVersion and current_game_ver ~= game_ver then
-    showMessage(string.format(
-        "Your version of Elden Ring (%s) might not be supported.\nSupported version: %s", 
-        current_game_ver, 
-        game_ver
-    ))
+    -- showMessage(string.format(
+    --     "Your version of Elden Ring (%s) might not be supported.\nSupported version: %s", 
+    --     current_game_ver, 
+    --     game_ver
+    -- ))
 end
 
 if tga.config.checkCEVersion and getCEVersion() < ce_ver then

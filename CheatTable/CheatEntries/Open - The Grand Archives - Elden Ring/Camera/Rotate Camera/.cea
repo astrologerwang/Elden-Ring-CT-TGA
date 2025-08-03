@@ -5,6 +5,18 @@ if syntaxcheck then return end
 
 function rotateCamera()
     print("Rotating camera")
+    local fieldArea = getAddressSafe("FieldArea")
+    if fieldArea then
+        local xAddress = readPointer(fieldArea)
+        local x1 = readPointer(xAddress + 0x20)
+        local x2 = readPointer(x1 + 0xD0)
+        local xAddr = x2 + 0x40
+        local x = readFloat(xAddr)
+        print("X value: " .. x)
+        -- local currentX = readFloat(xAddress) or 0
+        writeFloat(xAddr, x + 1)
+        -- print("X value: " .. currentX)
+    end
 end
 
 [ENABLE]
