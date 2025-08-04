@@ -1,7 +1,7 @@
 # Changelog
 ## [Unreleased]
 
-## [v1.16.0] - 2025-08-04
+## [v1.17.0] - 2025-08-04
 ### Added
  - Item Type filter for "Print items"
  - Print items will now print item names, but it's slightly buggy
@@ -705,7 +705,8 @@
  - Custom FPS Limit
 
 
-[unreleased]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.16.1...dev
+[unreleased]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.17.0...dev
+[v1.17.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.16.1...v1.17.0
 [v1.16.1]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.16.0...v1.16.1
 [v1.16.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.15.0...v1.16.0
 [v1.15.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.14.1...v1.15.0
