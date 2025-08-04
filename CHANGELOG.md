@@ -5,6 +5,12 @@
  - Print items will now print item names, but it's slightly buggy
    - upgraded items will display the same as unupgraded
    - items without names will show incorrectly
+ - by [Umgak](https://github.com/Umgak):
+   - Warning for Cheat Engine versions below 7.4 and above 7.5
+ - by [Dasaav](https://github.com/Dasaav-dsv/):
+   - Noclip
+ - by [Dasaav](https://github.com/Dasaav-dsv/) and [Umgak](https://github.com/Umgak):
+   - Event Flag Manager
 ### Changed
  - Supported version to v1.16.0
 ### Fixed
@@ -13,6 +19,7 @@
  - Fixed credits for Free Camera fix
  - by [Umgak](https://github.com/Umgak):
    - Teleport to Map-relative Coordinates for Shadow of the Erdtree
+   - CParamUtils being broken on Cheat Engine 7.6
 
 ## [v1.16.1] - 2024-10-03
 ### Changed

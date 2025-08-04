@@ -167,6 +167,7 @@ Relinquished001 | Table contributions
 Silence | Spreadsheet
 The-Raid-Boss | MassItemGib additions
 [tremwil](https://github.com/tremwil/) | CParamUtils and more table contributions
+[Umgak](https://github.com/Umgak) | Fixes and improvements
 
 Github | Reason
 ------------- | ---------------------
