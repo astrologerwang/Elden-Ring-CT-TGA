@@ -1,6 +1,28 @@
 # Changelog
 ## [Unreleased]
 
+## [v1.17.0] - 2025-08-04
+### Added
+ - Item Type filter for "Print items"
+ - Print items will now print item names, but it's slightly buggy
+   - upgraded items will display the same as unupgraded
+   - items without names will show incorrectly
+ - by [Umgak](https://github.com/Umgak):
+   - Warning for Cheat Engine versions below 7.4 and above 7.5
+ - by [Dasaav](https://github.com/Dasaav-dsv/):
+   - Noclip
+ - by [Dasaav](https://github.com/Dasaav-dsv/) and [Umgak](https://github.com/Umgak):
+   - Event Flag Manager
+### Changed
+ - Supported version to v1.16.0
+### Fixed
+ - Graphics header under OptionData
+ - "Print items" in EquipInventoryData
+ - Fixed credits for Free Camera fix
+ - by [Umgak](https://github.com/Umgak):
+   - Teleport to Map-relative Coordinates for Shadow of the Erdtree
+   - CParamUtils being broken on Cheat Engine 7.6
+
 ## [v1.16.1] - 2024-10-03
 ### Changed
  - Supported version to v1.15.0
@@ -96,7 +118,8 @@
  - some chrasm pointers
  - "Remove Seamless Co-op Items" script
  - EquipItem's unequip function
- - Free Camera
+ by [vswarte](https://github.com/vswarte)
+   - Free Camera
  - Session Info equipment offsets
 
 ## [v1.12.1] - 2024-07-05
@@ -682,7 +705,11 @@
  - Custom FPS Limit
 
 
-[unreleased]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.14.1...dev
+[unreleased]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.17.0...dev
+[v1.17.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.16.1...v1.17.0
+[v1.16.1]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.16.0...v1.16.1
+[v1.16.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.15.0...v1.16.0
+[v1.15.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.14.1...v1.15.0
 [v1.14.1]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.14.0...v1.14.1
 [v1.14.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.13.0...v1.14.0
 [v1.13.0]: https://github.com/inunorii/Elden-Ring-CT-TGA/compare/v1.12.1...v1.13.0
