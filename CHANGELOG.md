@@ -1,5 +1,7 @@
 # Changelog
 ## [Unreleased]
+
+## [v1.16.0] - 2025-08-04
 ### Added
  - Item Type filter for "Print items"
  - Print items will now print item names, but it's slightly buggy
