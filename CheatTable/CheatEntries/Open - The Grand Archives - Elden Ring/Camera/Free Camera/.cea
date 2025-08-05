@@ -22,7 +22,6 @@ local function applyPatches(value)
     }
     for _,AOB in ipairs(patchAOBs) do
         local val = assert(getCallTarget(AOBScanModuleUnique(process, AOB)))
-        print(val)
         table.insert(patches, val)
     end
     applyReturnPatch(table.remove(patches), value)

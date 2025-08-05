@@ -3,31 +3,58 @@
 {$lua}
 if syntaxcheck then return end
 
+centerX = 12.6
+centerY = 0
+centerZ = -15
+R = 10
+H = 20
+degree = 0
+
+function getAddressP()
+    local area = getAddressSafe("FieldArea")
+    local p0 = readPointer(area)
+    local p1 = readPointer(p0 + 0x20)
+    local p2 = readPointer(p1 + 0xD0)
+    return p2
+end
+
+P = getAddressP()
+
+function getAddressX()
+    return P + 0x40
+end
+
+function getAddressY()
+    return P + 0x44
+end
+
+function getAddressZ()
+    return P + 0x48
+end
+
 function rotateCamera()
-    print("Rotating camera")
-    local fieldArea = getAddressSafe("FieldArea")
-    if fieldArea then
-        local xAddress = readPointer(fieldArea)
-        local x1 = readPointer(xAddress + 0x20)
-        local x2 = readPointer(x1 + 0xD0)
-        local xAddr = x2 + 0x40
-        local x = readFloat(xAddr)
-        print("X value: " .. x)
-        -- local currentX = readFloat(xAddress) or 0
-        writeFloat(xAddr, x + 1)
-        -- print("X value: " .. currentX)
-    end
+    local xAddr = getAddressX()
+    local zAddr = getAddressZ()
+
+    degree = (degree + 0.5) % 360
+    local rad = math.rad(degree)
+
+    local newX = centerX + R * math.cos(rad)
+    local newZ = centerZ + R * math.sin(rad)
+
+    writeFloat(xAddr, newX)
+    writeFloat(zAddr, newZ)
 end
 
 [ENABLE]
+writeFloat(yAddr, H)
 rotationTimer = createTimer(getMainForm())
-rotationTimer.Interval = 1000
+rotationTimer.Interval = 10
 rotationTimer.OnTimer = rotateCamera
 rotationTimer.Enabled = true
 
 [DISABLE]
 if rotationTimer then
-    print("Stopping camera rotation...")
     rotationTimer.Enabled = false
     rotationTimer.destroy()
     rotationTimer = nil
