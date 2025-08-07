@@ -5,10 +5,11 @@ if syntaxcheck then return end
 
 centerX = 12.6
 centerY = 0
-centerZ = -15
-R = 10
-H = 20
+centerZ = 17
+R = 15
+H = 10
 degree = 0
+S = math.sqrt(R * R + H * H)
 
 function getAddressP()
     local area = getAddressSafe("FieldArea")
@@ -20,36 +21,53 @@ end
 
 P = getAddressP()
 
-function getAddressX()
-    return P + 0x40
-end
-
-function getAddressY()
-    return P + 0x44
-end
-
-function getAddressZ()
-    return P + 0x48
-end
-
 function rotateCamera()
-    local xAddr = getAddressX()
-    local zAddr = getAddressZ()
-
-    degree = (degree + 0.5) % 360
+    degree = (degree + 0.1) % 360
     local rad = math.rad(degree)
 
-    local newX = centerX + R * math.cos(rad)
-    local newZ = centerZ + R * math.sin(rad)
+    local Fx = R * math.cos(rad) / S
+    local Fy = H / S
+    local Fz = R * math.sin(rad) / S
 
-    writeFloat(xAddr, newX)
-    writeFloat(zAddr, newZ)
+    local Lx = math.sin(rad)
+    local Ly = 0
+    local Lz = math.cos(rad)
+
+    local _Ux = -Fx * Fy
+    local _Uy = Fx * Fx + Fz * Fz
+    local _Uz = -Fy * Fz
+
+    local Ur = math.sqrt(_Ux * _Ux + _Uy * _Uy + _Uz * _Uz)
+    local Ux = _Ux / Ur
+    local Uy = _Uy / Ur
+    local Uz = _Uz / Ur
+
+    local newX = centerX + Fx * S
+    local newZ = centerZ + Fz * S
+
+    writeFloat(P + 0x10, Lx)
+    writeFloat(P + 0x14, Ly)
+    writeFloat(P + 0x18, Lz)
+
+    writeFloat(P + 0x20, Ux)
+    writeFloat(P + 0x24, Uy)
+    writeFloat(P + 0x28, Uz)
+
+    print(Ux, Uy, Uz)
+
+    writeFloat(P + 0x30, -Fx)
+    writeFloat(P + 0x34, -Fy)
+    writeFloat(P + 0x38, -Fz)
+
+    writeFloat(P + 0x40, newX)
+    writeFloat(P + 0x44, H)
+    writeFloat(P + 0x48, newZ)
 end
 
 [ENABLE]
 writeFloat(yAddr, H)
 rotationTimer = createTimer(getMainForm())
-rotationTimer.Interval = 10
+rotationTimer.Interval = 1
 rotationTimer.OnTimer = rotateCamera
 rotationTimer.Enabled = true
 
