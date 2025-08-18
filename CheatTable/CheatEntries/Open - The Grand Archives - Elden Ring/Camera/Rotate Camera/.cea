@@ -64,16 +64,67 @@ function rotateCamera()
     writeFloat(P + 0x48, newZ)
 end
 
+-- [ENABLE]
+-- writeFloat(yAddr, H)
+-- rotationTimer = createTimer(getMainForm())
+-- rotationTimer.Interval = 1
+-- rotationTimer.OnTimer = rotateCamera
+-- rotationTimer.Enabled = true
+
+-- [DISABLE]
+-- if rotationTimer then
+--     rotationTimer.Enabled = false
+--     rotationTimer.destroy()
+--     rotationTimer = nil
+-- end
+
+
+function printR14Debug()
+    print("logging r14 value...")
+    local p1 = readPointer("r14log")
+    local p2 = readBytes(p1)
+    print(p2)
+    -- local r14val = readFloat(p2)
+    -- print(r14val)
+end
+
+function getAddressOfInput()
+    local xinput = getAddressSafe("xinput1_4.XInputGetState")
+    if not xinput then
+        print("XInputGetState not found")
+        return nil
+    end
+    return xinput
+end
+
 [ENABLE]
-writeFloat(yAddr, H)
-rotationTimer = createTimer(getMainForm())
-rotationTimer.Interval = 1
-rotationTimer.OnTimer = rotateCamera
-rotationTimer.Enabled = true
+debugTimer = createTimer(getMainForm())
+debugTimer.Interval = 1000
+debugTimer.OnTimer = printR14Debug
+debugTimer.Enabled = true
+
+{$asm}
+define(XIP, xinput1_4.XInputGetState+0x15A)
+alloc(newmem,128,XIP)
+alloc(r14log,8)
+registersymbol(r14log)
+
+XIP:
+jmp newmem
+nop
+nop
+nop
+nop
+nop
+
+newmem:
+add rsp,30
+mov [r14log], rdi
+pop r14
+pop rdi
+pop rsi
+ret
 
 [DISABLE]
-if rotationTimer then
-    rotationTimer.Enabled = false
-    rotationTimer.destroy()
-    rotationTimer = nil
-end
+debugTimer.Enabled = false
+debugTimer.destroy()
