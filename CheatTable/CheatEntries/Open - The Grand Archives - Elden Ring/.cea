@@ -573,6 +573,7 @@ tga.baseData = {
     --{symbolName = "WorldChrManDbg", AOB = "48 8B 0D ?? ?? ?? ?? 89 5C 24 20 48 85 C9 74 12 B8 ?? ?? ?? ?? 8B D8"},
     --{symbolName = "CSMenuMan", AOB = "48 8B 05 ?? ?? ?? ?? 33 DB 48 89 74 24"},
     {symbolName = "MsgRepository", AOB = "48 8B 3D ?? ?? ?? ?? 44 0F B6 30 48 85 FF 75"},
+    {symbolName = "XInputGetState", AOB = "EF FF FF 8B C3 48 8B 5C24 50 48 83 C4 30 41 5E 5F 5E C3 CC"},
     --{symbolName = "MapItemMan", AOB = "48 8B 0D ?? ?? ?? ?? C7 44 24 50 FF FF FF FF"},
     --{symbolName = "ThrowMan", AOB = "41 8B 07 66 0F 7E CF 89 7C 24 ?? 0B C7 33 DB A8", offset = -36},
     --{symbolName = "CSTrophy", AOB = "0F 84 ?? ?? ?? ?? 8B 00 89 44 24", offset = -10},
