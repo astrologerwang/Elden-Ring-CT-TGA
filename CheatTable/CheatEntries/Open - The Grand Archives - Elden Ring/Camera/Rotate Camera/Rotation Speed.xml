@@ -1,0 +1,9 @@
+<CheatEntry>
+    <ID>108952</ID>
+    <Description>"Rotation Speed | 旋转速度"</Description>
+    <Options moRecursiveSetValue="1" />
+    <ShowAsSigned>0</ShowAsSigned>
+    <VariableType>Float</VariableType>
+    <Address>rotationSpeedAddr</Address>
+    <LastState Value="0.02" RealAddress="00000000" />
+</CheatEntry>

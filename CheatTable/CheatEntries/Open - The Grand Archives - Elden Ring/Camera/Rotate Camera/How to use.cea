@@ -1,0 +1,10 @@
+{$lua}
+if syntaxcheck then return end
+[ENABLE]
+showText("Controls", [[
+
+check the box to enable camera rotation
+
+]])
+disableMemrec(memrec)
+[DISABLE]

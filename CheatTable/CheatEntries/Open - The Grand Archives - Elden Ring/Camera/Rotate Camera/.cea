@@ -1,0 +1,216 @@
+{$lua}
+if syntaxcheck then return end
+
+-- function rotateCamera()
+--     -- local r14 = readQword("r14log")
+--     local rdi = readPointer("rdilog")
+--     local rdival = readQword(rdi)
+--     -- local rsi = readQword("rsilog")
+--     -- print(string.format("r14=0x%X, rdi=0x%X, rsi=0x%X", r14, rdi, rsi))
+--     print(string.format("rdi=0x%X", rdi))
+--     print(string.format("rdival=0x%X", rdival))
+-- end
+
+function rotateCamera()
+    local rdi = readPointer("rdilog")
+    if rdi == nil or rdi == 0 then return end
+
+    -- Read XINPUT_STATE
+    local dwPacketNumber = readInteger(rdi)
+    local wButtons = readSmallInteger(rdi + 4)
+    local bLeftTrigger = readBytes(rdi + 6, 1, false)
+    local bRightTrigger = readBytes(rdi + 7, 1, false)
+    local sThumbLX = readSmallInteger(rdi + 8)
+    local sThumbLY = readSmallInteger(rdi + 10)
+    local sThumbRX = readSmallInteger(rdi + 12)
+    local sThumbRY = readSmallInteger(rdi + 14)
+
+    print(string.format("Packet: %d, Buttons: 0x%X, LT: %d, RT: %d, LX: %d, LY: %d, RX: %d, RY: %d",
+        dwPacketNumber, wButtons, bLeftTrigger, bRightTrigger, sThumbLX, sThumbLY, sThumbRX, sThumbRY))
+end
+
+{$asm}
+define(address,"XINPUT1_4.dll"+2F1A)
+define(originalbytes,48 83 C4 30 41 5E 5F 5E)
+
+[ENABLE]
+
+{$lua}
+rotationTimer = createTimer(getMainForm())
+rotationTimer.Interval = 500
+rotationTimer.OnTimer = rotateCamera
+rotationTimer.Enabled = true
+
+{$asm}
+assert(address,originalbytes)
+alloc(newmem,$1000,"XINPUT1_4.dll"+2F1A)
+alloc(rdilog,8)
+registersymbol(rdilog)
+
+label(code)
+label(return)
+
+newmem:
+
+code:
+    mov [rdilog], rdi
+    add rsp,30
+    pop r14
+    pop rdi
+    pop rsi
+    jmp return
+
+address:
+    jmp newmem
+    nop
+    nop
+    nop
+return:
+
+[DISABLE]
+
+{$lua}
+if rotationTimer then
+    rotationTimer.Enabled = false
+    rotationTimer.destroy()
+    rotationTimer = nil
+end
+
+{$asm}
+address:
+    db originalbytes
+    // add rsp,30
+    // pop r14
+    // pop rdi
+    // pop rsi
+
+unregistersymbol(rdilog)
+dealloc(rdilog)
+dealloc(newmem)
+
+
+
+// XINPUT1_4.XInputGetState+133: 74 1E                 - je XINPUT1_4.XInputGetState+153
+// XINPUT1_4.XInputGetState+135: 80 79 19 04           - cmp byte ptr [rcx+19],04
+// XINPUT1_4.XInputGetState+139: 72 18                 - jb XINPUT1_4.XInputGetState+153
+// XINPUT1_4.XInputGetState+13B: 48 8B 49 10           - mov rcx,[rcx+10]
+// XINPUT1_4.XInputGetState+13F: 4C 8D 05 AA 77 00 00  - lea r8,[XINPUT1_4.dll+A6B0]
+// XINPUT1_4.XInputGetState+146: BA 0E 00 00 00        - mov edx,0000000E
+// XINPUT1_4.XInputGetState+14B: 44 8B CB              - mov r9d,ebx
+// XINPUT1_4.XInputGetState+14E: E8 45 EF FF FF        - call XINPUT1_4.DllMain+338
+// XINPUT1_4.XInputGetState+153: 8B C3                 - mov eax,ebx
+// XINPUT1_4.XInputGetState+155: 48 8B 5C 24 50        - mov rbx,[rsp+50]
+// ---------- INJECTING HERE ----------
+// XINPUT1_4.XInputGetState+15A: 48 83 C4 30           - add rsp,30
+// XINPUT1_4.XInputGetState+15E: 41 5E                 - pop r14
+// XINPUT1_4.XInputGetState+160: 5F                    - pop rdi
+// XINPUT1_4.XInputGetState+161: 5E                    - pop rsi
+// ---------- DONE INJECTING  ----------
+// XINPUT1_4.XInputGetState+162: C3                    - ret 
+// XINPUT1_4.XInputGetState+163: CC                    - int 3 
+// XINPUT1_4.XInputGetState+164: CC                    - int 3 
+// XINPUT1_4.XInputGetState+165: CC                    - int 3 
+// XINPUT1_4.XInputGetState+166: CC                    - int 3 
+// XINPUT1_4.XInputGetState+167: CC                    - int 3 
+// XINPUT1_4.XInputGetState+168: CC                    - int 3 
+
+// ----- XInputGetState code ---------
+// XINPUT1_4.XInputGetState - E9 05E0BA1E           - jmp 7FFBADC30DCA { ->->gameoverlayrenderer64.dll+C5570 }
+// XINPUT1_4.XInputGetState+5- 56                   - push rsi
+// XINPUT1_4.XInputGetState+6- 57                   - push rdi
+// XINPUT1_4.XInputGetState+7- 41 56                - push r14
+// XINPUT1_4.XInputGetState+9- 48 83 EC 30          - sub rsp,30 { 48 }
+// XINPUT1_4.XInputGetState+D- 48 8B FA             - mov rdi,rdx
+// XINPUT1_4.XInputGetState+10- 8B F1               - mov esi,ecx
+// XINPUT1_4.XInputGetState+12- 48 8B 0D 37A20000   - mov rcx,[XINPUT1_4.dll+D010] { (7FFB8F08D6C0) }
+// XINPUT1_4.XInputGetState+19- 4C 8D 35 30A20000   - lea r14,[XINPUT1_4.dll+D010] { (7FFB8F08D6C0) }
+// XINPUT1_4.XInputGetState+20- 49 3B CE            - cmp rcx,r14
+// XINPUT1_4.XInputGetState+23- 74 29               - je XINPUT1_4.XInputGetState+4E
+// XINPUT1_4.XInputGetState+25- F6 41 1C 10         - test byte ptr [rcx+1C],10 { 16 }
+// XINPUT1_4.XInputGetState+29- 74 23               - je XINPUT1_4.XInputGetState+4E
+// XINPUT1_4.XInputGetState+2B- 80 79 19 04         - cmp byte ptr [rcx+19],04 { 4 }
+// XINPUT1_4.XInputGetState+2F- 72 1D               - jb XINPUT1_4.XInputGetState+4E
+// XINPUT1_4.XInputGetState+31- 48 8B 49 10         - mov rcx,[rcx+10]
+// XINPUT1_4.XInputGetState+35- BA 0B000000         - mov edx,0000000B { 11 }
+// XINPUT1_4.XInputGetState+3A- 44 8B CE            - mov r9d,esi
+// XINPUT1_4.XInputGetState+3D- 48 89 7C 24 20      - mov [rsp+20],rdi
+// XINPUT1_4.XInputGetState+42- E8 55F1FFFF         - call XINPUT1_4.DllMain+43C
+// XINPUT1_4.XInputGetState+47- 48 8B 0D 02A20000   - mov rcx,[XINPUT1_4.dll+D010] { (7FFB8F08D6C0) }
+// XINPUT1_4.XInputGetState+4E- 83 FE 04            - cmp esi,04 { 4 }
+// XINPUT1_4.XInputGetState+51- 72 18               - jb XINPUT1_4.XInputGetState+6B
+// XINPUT1_4.XInputGetState+53- 49 3B CE            - cmp rcx,r14
+// XINPUT1_4.XInputGetState+56- 74 43               - je XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+58- F6 41 1C 10         - test byte ptr [rcx+1C],10 { 16 }
+// XINPUT1_4.XInputGetState+5C- 74 3D               - je XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+5E- 80 79 19 02         - cmp byte ptr [rcx+19],02 { 2 }
+// XINPUT1_4.XInputGetState+62- 72 37               - jb XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+64- BA 0C000000         - mov edx,0000000C { 12 }
+// XINPUT1_4.XInputGetState+69- EB 19               - jmp XINPUT1_4.XInputGetState+84
+// XINPUT1_4.XInputGetState+6B- 48 85 FF            - test rdi,rdi
+// XINPUT1_4.XInputGetState+6E- 75 35               - jne XINPUT1_4.XInputGetState+A5
+// XINPUT1_4.XInputGetState+70- 49 3B CE            - cmp rcx,r14
+// XINPUT1_4.XInputGetState+73- 74 26               - je XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+75- F6 41 1C 10         - test byte ptr [rcx+1C],10 { 16 }
+// XINPUT1_4.XInputGetState+79- 74 20               - je XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+7B- 80 79 19 02         - cmp byte ptr [rcx+19],02 { 2 }
+// XINPUT1_4.XInputGetState+7F- 72 1A               - jb XINPUT1_4.XInputGetState+9B
+// XINPUT1_4.XInputGetState+81- 8D 57 0D            - lea edx,[rdi+0D]
+// XINPUT1_4.XInputGetState+84- 48 8B 49 10         - mov rcx,[rcx+10]
+// XINPUT1_4.XInputGetState+88- 4C 8D 05 61780000   - lea r8,[XINPUT1_4.dll+A6B0] { (2119535452) }
+// XINPUT1_4.XInputGetState+8F- E8 DCEEFFFF         - call XINPUT1_4.DllMain+210
+// XINPUT1_4.XInputGetState+94- 48 8B 0D B5A10000   - mov rcx,[XINPUT1_4.dll+D010] { (7FFB8F08D6C0) }
+// XINPUT1_4.XInputGetState+9B- BB A0000000         - mov ebx,000000A0 { 160 }
+// XINPUT1_4.XInputGetState+A0- E9 85000000         - jmp XINPUT1_4.XInputGetState+12A
+// XINPUT1_4.XInputGetState+A5- 48 8B 05 74A90000   - mov rax,[XINPUT1_4.dll+D7E0] { (0) }
+// XINPUT1_4.XInputGetState+AC- 8B CE               - mov ecx,esi
+// XINPUT1_4.XInputGetState+AE- 48 85 C0            - test rax,rax
+// XINPUT1_4.XInputGetState+B1- 74 0C               - je XINPUT1_4.XInputGetState+BF
+// XINPUT1_4.XInputGetState+B3- 48 8B D7            - mov rdx,rdi
+// XINPUT1_4.XInputGetState+B6- E8 95610000         - call XINPUT1_4.dll+9010
+// XINPUT1_4.XInputGetState+BB- 8B D8               - mov ebx,eax
+// XINPUT1_4.XInputGetState+BD- EB 64               - jmp XINPUT1_4.XInputGetState+123
+// XINPUT1_4.XInputGetState+BF- 48 8B 15 82A10000   - mov rdx,[XINPUT1_4.dll+D008] { (7FFB8F084C60) }
+// XINPUT1_4.XInputGetState+C6- 4C 8D 44 24 68      - lea r8,[rsp+68]
+// XINPUT1_4.XInputGetState+CB- 41 B1 01            - mov r9b,01 { 1 }
+// XINPUT1_4.XInputGetState+CE- 48 89 7C 24 68      - mov [rsp+68],rdi
+// XINPUT1_4.XInputGetState+D3- C6 44 24 20 00      - mov byte ptr [rsp+20],00 { 0 }
+// XINPUT1_4.XInputGetState+D8- E8 1F0F0000         - call XINPUT1_4.dll+3DBC
+// XINPUT1_4.XInputGetState+DD- 8B C8               - mov ecx,eax
+// XINPUT1_4.XInputGetState+DF- E8 A8020000         - call XINPUT1_4.Ordinal103+EC
+// XINPUT1_4.XInputGetState+E4- 8B D8               - mov ebx,eax
+// XINPUT1_4.XInputGetState+E6- 85 C0               - test eax,eax
+// XINPUT1_4.XInputGetState+E8- 75 39               - jne XINPUT1_4.XInputGetState+123
+// XINPUT1_4.XInputGetState+EA- 48 83 64 24 60 00   - and qword ptr [rsp+60],00 { 0 }
+// XINPUT1_4.XInputGetState+F0- 48 8D 54 24 60      - lea rdx,[rsp+60]
+// XINPUT1_4.XInputGetState+F5- 45 33 C0            - xor r8d,r8d
+// XINPUT1_4.XInputGetState+F8- 8B CE               - mov ecx,esi
+// XINPUT1_4.XInputGetState+FA- E8 952B0000         - call XINPUT1_4.dll+5A54
+// XINPUT1_4.XInputGetState+FF- 85 C0               - test eax,eax
+// XINPUT1_4.XInputGetState+101- 78 17              - js XINPUT1_4.XInputGetState+11A
+// XINPUT1_4.XInputGetState+103- 48 8B 4C 24 60     - mov rcx,[rsp+60]
+// XINPUT1_4.XInputGetState+108- 48 85 C9           - test rcx,rcx
+// XINPUT1_4.XInputGetState+10B- 74 0D              - je XINPUT1_4.XInputGetState+11A
+// XINPUT1_4.XInputGetState+10D- 0FB7 51 54         - movzx edx,word ptr [rcx+54]
+// XINPUT1_4.XInputGetState+111- 0FB7 49 52         - movzx ecx,word ptr [rcx+52]
+// XINPUT1_4.XInputGetState+115- E8 7A480000        - call XINPUT1_4.dll+7754
+// XINPUT1_4.XInputGetState+11A- B8 FFFB0000        - mov eax,0000FBFF { 64511 }
+// XINPUT1_4.XInputGetState+11F- 66 21 47 04        - and [rdi+04],ax
+// XINPUT1_4.XInputGetState+123- 48 8B 0D 26A10000  - mov rcx,[XINPUT1_4.dll+D010] { (7FFB8F08D6C0) }
+// XINPUT1_4.XInputGetState+12A- 49 3B CE           - cmp rcx,r14
+// XINPUT1_4.XInputGetState+12D- 74 24              - je XINPUT1_4.XInputGetState+153
+// XINPUT1_4.XInputGetState+12F- F6 41 1C 10        - test byte ptr [rcx+1C],10 { 16 }
+// XINPUT1_4.XInputGetState+133- 74 1E              - je XINPUT1_4.XInputGetState+153
+// XINPUT1_4.XInputGetState+135- 80 79 19 04        - cmp byte ptr [rcx+19],04 { 4 }
+// XINPUT1_4.XInputGetState+139- 72 18              - jb XINPUT1_4.XInputGetState+153
+// XINPUT1_4.XInputGetState+13B- 48 8B 49 10        - mov rcx,[rcx+10]
+// XINPUT1_4.XInputGetState+13F- 4C 8D 05 AA770000  - lea r8,[XINPUT1_4.dll+A6B0] { (2119535452) }
+// XINPUT1_4.XInputGetState+146- BA 0E000000        - mov edx,0000000E { 14 }
+// XINPUT1_4.XInputGetState+14B- 44 8B CB           - mov r9d,ebx
+// XINPUT1_4.XInputGetState+14E- E8 45EFFFFF        - call XINPUT1_4.DllMain+338
+// XINPUT1_4.XInputGetState+153- 8B C3              - mov eax,ebx
+// XINPUT1_4.XInputGetState+155- 48 8B 5C 24 50     - mov rbx,[rsp+50]
+// XINPUT1_4.XInputGetState+15A- 48 83 C4 30        - add rsp,30 { 48 }
+// XINPUT1_4.XInputGetState+15E- 41 5E              - pop r14
+// XINPUT1_4.XInputGetState+160- 5F                 - pop rdi
+// XINPUT1_4.XInputGetState+161- 5E                 - pop rsi
+// XINPUT1_4.XInputGetState+162- C3                 - ret

@@ -1,0 +1,10 @@
+<CheatEntry>
+  <ID>108950</ID>
+  <Description>"Rotate Camera"</Description>
+  <Options moHideChildren="1"/>
+  <VariableType>Auto Assembler Script</VariableType>
+  <x-ce2fs-child-order>
+    <id id="108951"/>
+    <id id="108952"/>
+  </x-ce2fs-child-order>
+</CheatEntry>
